@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HK NOTAM-C Map</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #090d16;
+    }
+
+    #hkMap {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background: #0b1120;
+    }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: rgba(15, 23, 42, 0.96) !important;
+      color: #f1f5f9 !important;
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      border-radius: 0.75rem !important;
+      box-shadow: 0 16px 28px -6px rgba(0, 0, 0, 0.65) !important;
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 14px !important;
+      font-family: 'Inter', sans-serif !important;
+      min-width: 220px;
+    }
+
+    .leaflet-popup-close-button {
+      color: #94a3b8 !important;
+      padding: 6px 8px !important;
+    }
+
+    .leaflet-control-layers,
+    .leaflet-control-zoom a {
+      background: rgba(15, 23, 42, 0.92) !important;
+      color: #e2e8f0 !important;
+      border-color: rgba(51, 65, 85, 0.8) !important;
+    }
+
+    .leaflet-control-layers {
+      border-radius: 0.6rem !important;
+      font-family: 'Inter', sans-serif !important;
+      font-size: 12px !important;
+    }
+
+    .notam-tip {
+      background: rgba(15, 23, 42, 0.95) !important;
+      border: 1px solid rgba(96, 165, 250, 0.55) !important;
+      color: #dbeafe !important;
+      border-radius: 0.4rem !important;
+      padding: 2px 7px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 11px !important;
+    }
+
+    .thin-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .thin-scroll::-webkit-scrollbar-track { background: transparent; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.55); border-radius: 9999px; }
+  </style>
+</head>
+<body class="text-slate-100 antialiased flex flex-col md:flex-row h-screen w-screen overflow-hidden select-none">
+
+  <!-- Minimal Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none max-w-xs w-full px-3 md:px-0"></div>
+
+  <!-- Mobile Drawer Button -->
+  <button
+    type="button"
+    onclick="toggleMobileSidebar()"
+    class="md:hidden fixed bottom-12 right-4 z-[1050] bg-slate-900/95 border border-slate-700 text-slate-100 text-xs font-semibold px-3.5 py-2.5 rounded-full shadow-xl flex items-center gap-2"
+  >
+    <span>NOTAM-C</span>
+    <span id="mobileBadgeCount" class="font-mono text-blue-400">(0 / 0)</span>
+  </button>
+
+  <!-- LEFT MINIMALIST NOTAM SIDEBAR -->
+  <aside
+    id="sidebar"
+    class="fixed inset-y-0 left-0 z-[1040] w-full sm:w-[360px] md:w-[370px] md:static bg-slate-950 border-r border-slate-800/90 flex flex-col h-full transform -translate-x-full md:translate-x-0 transition-transform duration-200"
+  >
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-slate-800/90 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+        <h1 class="text-sm font-semibold tracking-tight text-white">HK NOTAM-C</h1>
+        <span id="notamRatio" class="font-mono text-xs text-blue-300">(0 / 0)</span>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <span id="hktClock" class="text-xs font-mono text-slate-400">--:-- HKT</span>
+        <button type="button" onclick="toggleMobileSidebar(false)" class="md:hidden text-slate-400 hover:text-white p-1" aria-label="Close">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Controls -->
+    <div class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/80 space-y-2 shrink-0">
+      <div class="flex items-center justify-between gap-2">
+        <div class="grid grid-cols-2 gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs flex-1">
+          <button
+            id="filterTodayBtn"
+            type="button"
+            onclick="setScopeFilter('today')"
+            class="py-1 rounded-md font-medium bg-slate-800 text-white transition-colors"
+          >
+            Active Today
+          </button>
+          <button
+            id="filterAllBtn"
+            type="button"
+            onclick="setScopeFilter('all')"
+            class="py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            All
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onclick="toggleManualNotamPaste()"
+          class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-blue-300 shrink-0"
+          title="Paste raw Series-C NOTAM text"
+        >
+          + Paste
+        </button>
+      </div>
+
+      <!-- Optional Manual NOTAM-C Paste Fallback -->
+      <div id="manualNotamBox" class="hidden space-y-1.5 pt-1">
+        <textarea
+          id="manualNotamInput"
+          rows="3"
+          placeholder="Paste Series-C NOTAM text from notam.ais.gov.hk..."
+          class="w-full bg-slate-900 border border-slate-800 focus:border-blue-500/70 rounded-lg p-2 text-[11px] font-mono text-slate-200 placeholder-slate-500 focus:outline-none resize-none select-text"
+        ></textarea>
+        <div class="flex justify-end gap-1.5">
+          <button type="button" onclick="toggleManualNotamPaste(false)" class="px-2 py-1 text-[11px] text-slate-400">Cancel</button>
+          <button type="button" onclick="handleManualNotamImport()" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium">Import</button>
+        </div>
+      </div>
+
+      <input
+        type="text"
+        id="searchInput"
+        oninput="renderSidebarList()"
+        placeholder="Filter NOTAM..."
+        class="w-full bg-slate-900/80 border border-slate-800 focus:border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none select-text"
+      />
+    </div>
+
+    <!-- Scrollable Minimalist List -->
+    <div id="listContainer" class="flex-1 overflow-y-auto thin-scroll p-3 space-y-2"></div>
+
+    <!-- Minimal Footer -->
+    <div class="px-3.5 py-2.5 border-t border-slate-800/90 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+      <span id="todayDateLabel" class="font-mono text-[10.5px] text-slate-400">Today HKT</span>
+      <span id="notamSyncStatus" class="font-mono text-[10px] text-slate-500 truncate max-w-[190px]">Ready</span>
+    </div>
+  </aside>
+
+  <!-- RIGHT MAP WORKSPACE -->
+  <main class="relative flex-1 h-full w-full overflow-hidden">
+    <!-- Minimal Floating Top-Left Action Pill -->
+    <div class="absolute top-3 left-3 z-[1000] flex items-center gap-1.5">
+      <button
+        type="button"
+        id="btnSyncNotamC"
+        onclick="fetchSeriesCNotams()"
+        class="bg-slate-950/92 hover:bg-slate-900 backdrop-blur-md border border-blue-500/45 text-blue-200 text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5 transition-colors"
+      >
+        <svg id="syncIcon" class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span id="syncLabel">Fetch NOTAM-C</span>
+      </button>
+
+      <button
+        type="button"
+        onclick="resetMapView()"
+        class="bg-slate-950/92 hover:bg-slate-900 backdrop-blur-md border border-slate-700/80 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg shadow-lg transition-colors"
+        title="Reset to Hong Kong overview"
+      >
+        HK
+      </button>
+    </div>
+
+    <!-- Leaflet Map -->
+    <div id="hkMap"></div>
+
+    <!-- Minimal Cursor Coordinate Readout -->
+    <div class="absolute bottom-3 left-3 z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 py-1 font-mono text-[11px] text-slate-300 flex items-center gap-2 pointer-events-none">
+      <span id="cursorDD">22.33500, 114.14000</span>
+      <span class="text-slate-600">·</span>
+      <span id="cursorUTM" class="text-blue-300">50Q KK 0565 7280</span>
+    </div>
+  </main>
+
+  <script>
+    /**
+     * ============================================================================
+     * 1. HONG KONG GAZETTEER & SEEDED SERIES-C NOTAMS
+     * ============================================================================
+     */
+    const HK_LANDMARKS = [
+      { names: ['harbour city', 'ocean terminal', 'canton road', '海港城'], lat: 22.2960, lng: 114.1683, radius: 250 },
+      { names: ['tsim sha tsui', 'tst', 'avenue of stars', '尖沙咀'], lat: 22.2948, lng: 114.1722, radius: 300 },
+      { names: ['west kowloon', 'wkcd', 'm+', 'xiqu', '西九'], lat: 22.3015, lng: 114.1565, radius: 350 },
+      { names: ['icc', 'elements', '九龍站'], lat: 22.3034, lng: 114.1602, radius: 250 },
+      { names: ['victoria harbour', '維港'], lat: 22.2915, lng: 114.1680, radius: 500 },
+      { names: ['central', 'ifc', 'ferry pier', '中環'], lat: 22.2855, lng: 114.1588, radius: 300 },
+      { names: ['the henderson', 'murray road', '美利道'], lat: 22.2803, lng: 114.1622, radius: 150 },
+      { names: ['admiralty', 'tamar', '金鐘'], lat: 22.2809, lng: 114.1656, radius: 250 },
+      { names: ['wan chai', 'hkcec', '灣仔', '會展'], lat: 22.2833, lng: 114.1731, radius: 300 },
+      { names: ['causeway bay', 'victoria park', '銅鑼灣'], lat: 22.2825, lng: 114.1885, radius: 300 },
+      { names: ['happy valley', '跑馬地'], lat: 22.2725, lng: 114.1823, radius: 300 },
+      { names: ['the peak', 'victoria peak', '山頂'], lat: 22.2759, lng: 114.1455, radius: 300 },
+      { names: ['kennedy town', '堅尼地城'], lat: 22.2830, lng: 114.1275, radius: 250 },
+      { names: ['cyberport', 'pok fu lam', '數碼港'], lat: 22.2618, lng: 114.1304, radius: 300 },
+      { names: ['aberdeen', 'ocean park', 'wong chuk hang', '香港仔', '海洋公園'], lat: 22.2467, lng: 114.1757, radius: 400 },
+      { names: ['repulse bay', 'deep water bay', '淺水灣'], lat: 22.2366, lng: 114.1972, radius: 350 },
+      { names: ['stanley', '赤柱'], lat: 22.2185, lng: 114.2128, radius: 350 },
+      { names: ['shek o', '石澳'], lat: 22.2307, lng: 114.2518, radius: 400 },
+      { names: ['north point', 'quarry bay', 'taikoo', '北角', '鰂魚涌'], lat: 22.2889, lng: 114.2116, radius: 300 },
+      { names: ['shau kei wan', 'sai wan ho', '筲箕灣'], lat: 22.2801, lng: 114.2292, radius: 300 },
+      { names: ['chai wan', 'siu sai wan', '柴灣'], lat: 22.2647, lng: 114.2371, radius: 350 },
+      { names: ['hung hom', 'whampoa', '紅磡'], lat: 22.3031, lng: 114.1826, radius: 300 },
+      { names: ['jordan', 'yau ma tei', '佐敦', '油麻地'], lat: 22.3082, lng: 114.1715, radius: 250 },
+      { names: ['mong kok', 'prince edward', '旺角'], lat: 22.3193, lng: 114.1694, radius: 250 },
+      { names: ['sham shui po', 'cheung sha wan', 'lai chi kok', '深水埗'], lat: 22.3307, lng: 114.1622, radius: 300 },
+      { names: ['stonecutters island', '昂船洲'], lat: 22.3189, lng: 114.1362, radius: 400 },
+      { names: ['kai tak', 'cruise terminal', '啟德'], lat: 22.3075, lng: 114.2125, radius: 450 },
+      { names: ['kowloon bay', 'kwun tong', '觀塘', '九龍灣'], lat: 22.3122, lng: 114.2251, radius: 300 },
+      { names: ['wong tai sin', 'diamond hill', '黃大仙'], lat: 22.3429, lng: 114.1932, radius: 350 },
+      { names: ['kowloon tong', '九龍塘'], lat: 22.3372, lng: 114.1762, radius: 300 },
+      { names: ['kwai chung', 'tsing yi', '葵涌', '青衣'], lat: 22.3456, lng: 114.1068, radius: 450 },
+      { names: ['tsuen wan', '荃灣'], lat: 22.3707, lng: 114.1135, radius: 350 },
+      { names: ['sham tseng', 'tsing ma', '深井', '青馬'], lat: 22.3667, lng: 114.0617, radius: 450 },
+      { names: ['tuen mun', 'gold coast', '屯門'], lat: 22.3916, lng: 113.9725, radius: 450 },
+      { names: ['yuen long', 'kam tin', '元朗', '錦田'], lat: 22.4445, lng: 114.0222, radius: 500 },
+      { names: ['tin shui wai', 'wetland park', 'lau fau shan', '天水圍', '流浮山'], lat: 22.4678, lng: 114.0046, radius: 500 },
+      { names: ['ha tsuen', 'hung shui kiu', 'deep bay', 'shenzhen bay', '廈村', '深圳灣'], lat: 22.4455, lng: 113.9861, radius: 500 },
+      { names: ['sheung shui', 'fanling', 'lok ma chau', '上水', '粉嶺'], lat: 22.5015, lng: 114.1277, radius: 500 },
+      { names: ['ta kwu ling', 'sha tau kok', '打鼓嶺', '沙頭角'], lat: 22.5364, lng: 114.1618, radius: 500 },
+      { names: ['tai po', 'science park', 'pak shek kok', '大埔', '科學園'], lat: 22.4508, lng: 114.1642, radius: 450 },
+      { names: ['sha tin', 'fo tan', '沙田'], lat: 22.3814, lng: 114.1883, radius: 400 },
+      { names: ['ma on shan', 'wu kai sha', 'shap sze heung', '馬鞍山'], lat: 22.4244, lng: 114.2317, radius: 400 },
+      { names: ['tai mo shan', '大帽山'], lat: 22.4117, lng: 114.1233, radius: 500 },
+      { names: ['sai kung', '西貢'], lat: 22.3814, lng: 114.2705, radius: 500 },
+      { names: ['clear water bay', 'hkust', '清水灣'], lat: 22.3364, lng: 114.2655, radius: 400 },
+      { names: ['tseung kwan o', 'tko', 'lohas park', '將軍澳'], lat: 22.3072, lng: 114.2598, radius: 400 },
+      { names: ['tung chung', '東涌'], lat: 22.2891, lng: 113.9412, radius: 450 },
+      { names: ['disneyland', 'penny s bay', '迪士尼'], lat: 22.3130, lng: 114.0413, radius: 500 },
+      { names: ['discovery bay', '愉景灣'], lat: 22.2952, lng: 114.0148, radius: 400 },
+      { names: ['tai o', 'mui wo', '大澳', '梅窩'], lat: 22.2545, lng: 113.8622, radius: 450 },
+      { names: ['cheung chau', '長洲'], lat: 22.2081, lng: 114.0285, radius: 400 },
+      { names: ['lamma', '南丫島'], lat: 22.2265, lng: 114.1118, radius: 450 },
+      { names: ['peng chau', '坪洲'], lat: 22.2856, lng: 114.0411, radius: 300 }
+    ];
+
+    // Seeded Series-C NOTAMs (live fetch replaces/merges from https://www.notam.ais.gov.hk/)
+    const SEED_SERIES_C = [
+      {
+        id: 'notam-C0495-26',
+        notamNo: 'C0495/26',
+        title: 'BVLOS UAS Ops — Shap Sze Heung, Sai Sa Rd',
+        geometryType: 'polygon',
+        lat: 22.4310,
+        lng: 114.2650,
+        coordinates: [
+          [22.43667, 114.27472], [22.42389, 114.27472], [22.42389, 114.27028],
+          [22.42778, 114.26750], [22.42556, 114.26361], [22.42556, 114.25306], [22.43667, 114.25306]
+        ],
+        upperLimit: '558FT AMSL',
+        validFromUtc: '2026-11-26T01:30:00Z',
+        validToUtc: '2026-11-26T09:00:00Z',
+        dailyWindowsUtc: [{ start: '01:30', end: '09:00' }],
+        schedule: 'NOV 26 0130-0900 UTC',
+        rawText: '(C0495/26 NOTAMN Q) VHHK/QWULW/IV/BO /W /000/006/2226N11416E002 A) VHHK B) 2611260130 C) 2611260900 E) UAS OPS (BEYOND VISUAL LINE OF SIGHT) WILL TAKE PLACE AT SHAP SZE HEUNG, SAI SA ROAD AREA (EAST OF MA ON SHAN), NEW TERRITORIES. F) SFC G) 558FT AMSL)'
+      },
+      {
+        id: 'notam-C0494-26',
+        notamNo: 'C0494/26',
+        title: 'UAS Ops — The Henderson, 2 Murray Rd, Central',
+        geometryType: 'circle',
+        lat: 22.28028,
+        lng: 114.16222,
+        radius: 40,
+        upperLimit: '657FT AMSL',
+        validFromUtc: '2026-11-24T02:00:00Z',
+        validToUtc: '2026-11-24T11:30:00Z',
+        dailyWindowsUtc: [{ start: '02:00', end: '03:00' }, { start: '10:30', end: '11:30' }],
+        schedule: 'NOV 24 0200-0300, 1030-1130 UTC',
+        rawText: '(C0494/26 NOTAMN Q) VHHK/QWULW/IV/BO /W /000/007/2217N11410E001 A) VHHK B) 2611240200 C) 2611241130 D) NOV 24 0200-0300 1030-1130 E) UAS OPS WILL TAKE PLACE AT THE HENDERSON, 2 MURRAY ROAD, CENTRAL WI 40M RADIUS OF 221649N1140944E. F) GND G) 657FT AMSL)'
+      },
+      {
+        id: 'notam-C0493-26',
+        notamNo: 'C0493/26',
+        title: 'BVLOS Cat C SUA — Deep Bay & Ha Tsuen',
+        geometryType: 'polyline',
+        lat: 22.4480,
+        lng: 113.9520,
+        coordinates: [
+          [22.44556, 113.98611], [22.45111, 113.97833], [22.45972, 113.97306],
+          [22.45528, 113.95861], [22.43889, 113.90528], [22.43083, 113.90167], [22.42722, 113.90889]
+        ],
+        upperLimit: '558FT AMSL',
+        validFromUtc: '2026-11-23T02:00:00Z',
+        validToUtc: '2026-12-31T09:00:00Z',
+        dailyWindowsUtc: [{ start: '02:00', end: '09:00' }],
+        schedule: 'DLY 0200-0900 UTC',
+        rawText: '(C0493/26 NOTAMN Q) VHHK/QWULW/IV/BO /W /000/006/2227N11400E003 A) VHHK B) 2611230200 C) 2612310900 D) DLY 0200-0900 E) UAS OPS (BEYOND VISUAL LINE OF SIGHT WITH CAT C SMALL UNMANNED AIRCRAFT) IN DEEP BAY AND HA TSUEN. F) SFC G) 558FT AMSL)'
+      }
+    ];
+
+    /**
+     * ============================================================================
+     * 2. STATE & STORAGE
+     * ============================================================================
+     */
+    const NOTAM_KEY = 'hk_notam_series_c_v4';
+
+    let seriesCNotams = [];
+    let map = null;
+    let notamLayer = null;
+    const notamLayersById = {};
+
+    let scopeFilter = 'today'; // 'today' | 'all'
+    let isFetching = false;
+
+    function loadState() {
+      try {
+        const n = JSON.parse(localStorage.getItem(NOTAM_KEY));
+        seriesCNotams = Array.isArray(n) && n.length
+          ? n.filter(x => x.notamNo && x.notamNo.startsWith('C'))
+          : JSON.parse(JSON.stringify(SEED_SERIES_C));
+      } catch {
+        seriesCNotams = JSON.parse(JSON.stringify(SEED_SERIES_C));
+      }
+    }
+
+    function saveNotams() {
+      try { localStorage.setItem(NOTAM_KEY, JSON.stringify(seriesCNotams)); } catch {}
+    }
+
+    /**
+     * ============================================================================
+     * 3. WGS84 COORDINATES: UTMREF / MGRS & LANDMARK FALLBACK
+     * ============================================================================
+     */
+    const MGRS_BANDS = 'CDEFGHJKLMNPQRSTUVWX';
+    const MGRS_COLS = ['ABCDEFGH', 'JKLMNPQR', 'STUVWXYZ'];
+    const MGRS_ROWS = 'ABCDEFGHJKLMNPQRSTUV';
+
+    function latLngToUtm(lat, lng) {
+      const a = 6378137.0, f = 1 / 298.257223563;
+      const e2 = 2 * f - f * f, ep2 = e2 / (1 - e2), k0 = 0.9996;
+      const zone = Math.floor((lng + 180) / 6) + 1;
+      const lon0 = ((zone - 1) * 6 - 180 + 3) * Math.PI / 180;
+      const phi = lat * Math.PI / 180, lam = lng * Math.PI / 180;
+      const s = Math.sin(phi), c = Math.cos(phi), t = Math.tan(phi);
+      const N = a / Math.sqrt(1 - e2 * s * s);
+      const T = t * t, C = ep2 * c * c, A = c * (lam - lon0);
+      const M = a * (
+        (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * Math.pow(e2, 3) / 256) * phi
+        - (3 * e2 / 8 + 3 * e2 * e2 / 32 + 45 * Math.pow(e2, 3) / 1024) * Math.sin(2 * phi)
+        + (15 * e2 * e2 / 256 + 45 * Math.pow(e2, 3) / 1024) * Math.sin(4 * phi)
+        - (35 * Math.pow(e2, 3) / 3072) * Math.sin(6 * phi)
+      );
+      const easting = k0 * N * (A + (1 - T + C) * Math.pow(A, 3) / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * Math.pow(A, 5) / 120) + 500000;
+      let northing = k0 * (M + N * t * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * Math.pow(A, 4) / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * Math.pow(A, 6) / 720));
+      if (lat < 0) northing += 10000000;
+      const band = MGRS_BANDS[Math.min(19, Math.max(0, Math.floor((lat + 80) / 8)))];
+      return { zone, band, easting, northing };
+    }
+
+    function latLngToMgrs(lat, lng, precision = 4) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -80 || lat > 84) return '';
+      const { zone, band, easting, northing } = latLngToUtm(lat, lng);
+      const colSet = MGRS_COLS[(zone - 1) % 3];
+      const colIdx = Math.floor(easting / 100000) - 1;
+      if (colIdx < 0 || colIdx >= colSet.length) return '';
+      const rowOrigin = zone % 2 === 0 ? 5 : 0;
+      const rowIdx = (Math.floor(northing / 100000) + rowOrigin) % 20;
+      const div = Math.pow(10, 5 - precision);
+      const eStr = String(Math.floor((easting % 100000) / div)).padStart(precision, '0');
+      const nStr = String(Math.floor((northing % 100000) / div)).padStart(precision, '0');
+      return `${zone}${band} ${colSet[colIdx]}${MGRS_ROWS[rowIdx]} ${eStr} ${nStr}`;
+    }
+
+    function geocodeHK(text) {
+      if (!text) return null;
+      const norm = text.toLowerCase().replace(/['’]/g, ' ');
+      let best = null, score = 0;
+      for (const item of HK_LANDMARKS) {
+        for (const name of item.names) {
+          if (norm.includes(name) && name.length > score) {
+            score = name.length;
+            best = item;
+          }
+        }
+      }
+      return best;
+    }
+
+    /**
+     * ============================================================================
+     * 4. TIME & ACTIVE-TODAY EVALUATION (HKT = UTC+8)
+     * ============================================================================
+     */
+    const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+
+    function getNowHKT() {
+      const now = new Date();
+      const hkt = new Date(now.getTime() + 8 * 3600000);
+      const y = hkt.getUTCFullYear();
+      const m = hkt.getUTCMonth();
+      const d = hkt.getUTCDate();
+      const hh = String(hkt.getUTCHours()).padStart(2, '0');
+      const mm = String(hkt.getUTCMinutes()).padStart(2, '0');
+      const startUtc = new Date(Date.UTC(y, m, d, 0, 0, 0) - 8 * 3600000);
+      const endUtc = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - 8 * 3600000);
+      const dateStr = `${String(d).padStart(2, '0')}/${String(m + 1).padStart(2, '0')}/${y}`;
+      return { y, m, d, hhmm: `${hh}:${mm}`, dateStr, startUtc, endUtc };
+    }
+
+    function toMinutes(t) {
+      const clean = (t || '').replace(/[^0-9:]/g, '');
+      if (clean.includes(':')) {
+        const [h, m] = clean.split(':').map(Number);
+        return (!isNaN(h) && !isNaN(m)) ? h * 60 + m : null;
+      }
+      if (clean.length === 4) return parseInt(clean.slice(0, 2), 10) * 60 + parseInt(clean.slice(2), 10);
+      return null;
+    }
+
+    function matchesExplicitScheduleDay(scheduleText, hkt) {
+      if (!scheduleText || /\bDLY\b/i.test(scheduleText)) return true;
+      // Check for explicit month + day lists like "NOV 21 22 23 2100-2359"
+      const monthChunks = [...scheduleText.toUpperCase().matchAll(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b([^A-Z]*)/g)];
+      if (!monthChunks.length) return true;
+
+      for (const chunk of monthChunks) {
+        const monIdx = MONTHS[chunk[1]];
+        if (monIdx !== hkt.m) continue;
+        // Strip HHMM-HHMM time ranges before reading day numbers
+        const withoutTimes = chunk[2].replace(/\b\d{4}\s*-\s*\d{4}\b/g, ' ');
+        const days = (withoutTimes.match(/\b\d{1,2}\b/g) || []).map(Number);
+        if (days.includes(hkt.d)) return true;
+      }
+      return false;
+    }
+
+    function isNotamActiveToday(notam) {
+      const hkt = getNowHKT();
+      const fromD = notam.validFromUtc ? new Date(notam.validFromUtc) : null;
+      const toD = notam.validToUtc ? new Date(notam.validToUtc) : null;
+      if (fromD && !isNaN(fromD.getTime()) && fromD > hkt.endUtc) return false;
+      if (toD && !isNaN(toD.getTime()) && toD < hkt.startUtc) return false;
+      return matchesExplicitScheduleDay(notam.schedule, hkt);
+    }
+
+    function getNotamStatus(notam) {
+      const now = new Date();
+      const fromD = notam.validFromUtc ? new Date(notam.validFromUtc) : null;
+      const toD = notam.validToUtc ? new Date(notam.validToUtc) : null;
+      if (toD && !isNaN(toD.getTime()) && now > toD) {
+        return { code: 'expired', activeToday: false, color: '#64748b', dot: 'bg-slate-500' };
+      }
+
+      const activeToday = isNotamActiveToday(notam);
+      if (!activeToday) {
+        return { code: 'upcoming', activeToday: false, color: '#60a5fa', dot: 'bg-blue-300' };
+      }
+
+      const inOverallRange = (!fromD || now >= fromD) && (!toD || now <= toD);
+      let inWindow = true;
+      if (Array.isArray(notam.dailyWindowsUtc) && notam.dailyWindowsUtc.length) {
+        const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+        inWindow = notam.dailyWindowsUtc.some(w => {
+          const s = toMinutes(w.start), e = toMinutes(w.end);
+          return s !== null && e !== null && (e >= s ? (cur >= s && cur <= e) : (cur >= s || cur <= e));
+        });
+      }
+
+      if (inOverallRange && inWindow) {
+        return { code: 'live', activeToday: true, color: '#0ea5e9', dot: 'bg-sky-400' };
+      }
+      return { code: 'today', activeToday: true, color: '#3b82f6', dot: 'bg-blue-500' };
+    }
+
+    /**
+     * ============================================================================
+     * 5. LIVE HK AIS SERIES-C NOTAM FETCHER & ICAO PARSER
+     * ============================================================================
+     */
+    function parseIcaoCoord(tok) {
+      // 6-digit lat + 7-digit lng (e.g. 222612N1141629E or N222612E1141629)
+      let m = tok.match(/^([NS])?(\d{2})(\d{2})(\d{2})([NS])?([EW])?(\d{3})(\d{2})(\d{2})([EW])?$/i);
+      if (m) {
+        let lat = parseInt(m[2], 10) + parseInt(m[3], 10) / 60 + parseInt(m[4], 10) / 3600;
+        let lng = parseInt(m[7], 10) + parseInt(m[8], 10) / 60 + parseInt(m[9], 10) / 3600;
+        if ((m[1] || m[5] || 'N').toUpperCase() === 'S') lat = -lat;
+        if ((m[6] || m[10] || 'E').toUpperCase() === 'W') lng = -lng;
+        if (lat >= 21.5 && lat <= 23.2 && lng >= 113.2 && lng <= 115.2) return [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
+      }
+      // 4-digit lat + 5-digit lng (e.g. 2217N11410E)
+      m = tok.match(/^([NS])?(\d{2})(\d{2})([NS])?([EW])?(\d{3})(\d{2})([EW])?$/i);
+      if (m) {
+        let lat = parseInt(m[2], 10) + parseInt(m[3], 10) / 60;
+        let lng = parseInt(m[6], 10) + parseInt(m[7], 10) / 60;
+        if ((m[1] || m[4] || 'N').toUpperCase() === 'S') lat = -lat;
+        if ((m[5] || m[8] || 'E').toUpperCase() === 'W') lng = -lng;
+        if (lat >= 21.5 && lat <= 23.2 && lng >= 113.2 && lng <= 115.2) return [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
+      }
+      return null;
+    }
+
+    function parseIcaoStamp(s) {
+      if (!s || s.length < 10) return null;
+      return `20${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4, 6)}T${s.slice(6, 8)}:${s.slice(8, 10)}:00Z`;
+    }
+
+    function parseSeriesCBlock(raw) {
+      const text = raw.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+      const idM = text.match(/\b(C\d{4}\/\d{2})\b/i);
+      if (!idM) return null;
+      const notamNo = idM[1].toUpperCase();
+
+      // Match Q-line allowing internal spaces (e.g. "Q) VHHK/QWULW/IV/BO /W /000/006/2226N11416E002")
+      const qM = text.match(/\bQ\)\s*([A-Z]{4})\/([A-Z]{5})\/[^\/]*\/[^\/]*\/[^\/]*\/\d{3}\/\d{3}\/(\d{4}[NS]\d{5}[EW]\d{3})/);
+      const bM = text.match(/\bB\)\s*(\d{10})\b/);
+      const cM = text.match(/\bC\)\s*(\d{10}|PERM)\b/i);
+      const dM = text.match(/\bD\)\s*(.+?)(?=\s+E\))/);
+      const eM = text.match(/\bE\)\s*(.+?)(?=\s+[FG]\)|$)/);
+      const gM = text.match(/\bG\)\s*([A-Z0-9]+(?:\s*(?:FT|M)\s*(?:AGL|AMSL)?)?)/i);
+
+      const eText = (eM ? eM[1] : text).replace(/\)\s*$/, '').trim();
+
+      // Extract coordinate tokens from E)
+      const tokens = eText.match(/\b(?:[NS]\d{4,6}[EW]\d{5,7}|\d{4,6}[NS]\d{5,7}[EW])\b/gi) || [];
+      const coords = tokens.map(parseIcaoCoord).filter(Boolean);
+
+      const radM = eText.match(/\b(\d+(?:\.\d+)?)\s*(KM|M|NM)\s*RADIUS\b/i)
+        || eText.match(/\bRADIUS\s*(?:OF\s*)?(\d+(?:\.\d+)?)\s*(KM|M|NM)\b/i);
+      let radius = null;
+      if (radM) {
+        const val = parseFloat(radM[1]);
+        const unit = radM[2].toUpperCase();
+        radius = unit === 'KM' ? Math.round(val * 1000) : (unit === 'NM' ? Math.round(val * 1852) : Math.round(val));
+      }
+
+      let geometryType = 'circle', coordinates = null, lat = null, lng = null;
+      if (coords.length >= 3 && !/\bRTE\b|\bROUTE\b/i.test(eText)) {
+        geometryType = 'polygon';
+        coordinates = coords;
+        lat = Number((coords.reduce((s, c) => s + c[0], 0) / coords.length).toFixed(5));
+        lng = Number((coords.reduce((s, c) => s + c[1], 0) / coords.length).toFixed(5));
+      } else if (coords.length >= 2) {
+        geometryType = 'polyline';
+        coordinates = coords;
+        lat = coords[0][0];
+        lng = coords[0][1];
+      } else if (coords.length === 1) {
+        geometryType = 'circle';
+        lat = coords[0][0];
+        lng = coords[0][1];
+      }
+
+      // Fallback to Q-line center & NM radius when E) has no explicit coordinates
+      if (qM) {
+        const qCenter = parseIcaoCoord(qM[3].slice(0, 11));
+        const qNm = parseInt(qM[3].slice(11, 14), 10);
+        if (lat === null && qCenter) {
+          lat = qCenter[0];
+          lng = qCenter[1];
+        }
+        if (radius === null && Number.isFinite(qNm) && qNm > 0 && qNm <= 25) {
+          radius = Math.round(qNm * 1852);
+        }
+      }
+
+      // Last-resort HK landmark geocode
+      if (lat === null) {
+        const lm = geocodeHK(eText);
+        lat = lm ? lm.lat : 22.3193;
+        lng = lm ? lm.lng : 114.1694;
+      }
+      if (radius === null) radius = 500;
+
+      const dailyWindowsUtc = [];
+      if (dM) {
+        for (const wm of dM[1].matchAll(/\b(\d{2})(\d{2})-(\d{2})(\d{2})\b/g)) {
+          dailyWindowsUtc.push({ start: `${wm[1]}:${wm[2]}`, end: `${wm[3]}:${wm[4]}` });
+        }
+      }
+
+      // Clean concise title
+      const shortTitle = eText
+        .replace(/ALL ACFT SHOULD EXER CTN.*$/i, '')
+        .replace(/BOUNDED BY.*$/i, '')
+        .replace(/WI\s+\d+(?:\.\d+)?\s*(?:M|KM)\s*RADIUS.*$/i, '')
+        .trim();
+
+      return {
+        id: `notam-${notamNo.replace('/', '-')}`,
+        notamNo,
+        title: (shortTitle.length > 62 ? shortTitle.slice(0, 62) + '…' : shortTitle) || `Series-C ${notamNo}`,
+        geometryType,
+        lat,
+        lng,
+        radius,
+        coordinates,
+        upperLimit: gM ? gM[1].toUpperCase() : 'UNL',
+        validFromUtc: bM ? parseIcaoStamp(bM[1]) : new Date().toISOString(),
+        validToUtc: (cM && cM[1].toUpperCase() !== 'PERM') ? parseIcaoStamp(cM[1]) : '2099-12-31T23:59:00Z',
+        dailyWindowsUtc,
+        schedule: dM ? `${dM[1]} UTC` : (bM && cM ? `${bM[1].slice(2, 6)} ${bM[1].slice(6)}–${cM[1].slice(6)} UTC` : 'Active'),
+        rawText: text
+      };
+    }
+
+    function extractSeriesCFromPayload(payload) {
+      if (!payload) return [];
+      const plain = String(payload)
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, '\n')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&');
+
+      const blocks = plain.split(/(?=(?:\(|^|\n)C\d{4}\/\d{2}\s+NOTAM)/i);
+      const parsedMap = new Map();
+
+      for (const blk of blocks) {
+        const trimmed = blk.trim();
+        if (!/^\(?C\d{4}\/\d{2}\s+NOTAM/i.test(trimmed)) continue;
+        const nextNotamIdx = trimmed.indexOf('\n(', 10);
+        const cleanBlk = nextNotamIdx !== -1 ? trimmed.slice(0, nextNotamIdx) : trimmed;
+        const parsed = parseSeriesCBlock(cleanBlk);
+        if (parsed) parsedMap.set(parsed.notamNo, parsed);
+      }
+
+      return Array.from(parsedMap.values());
+    }
+
+    async function fetchSeriesCNotams() {
+      if (isFetching) return;
+      isFetching = true;
+
+      const icon = document.getElementById('syncIcon');
+      const label = document.getElementById('syncLabel');
+      icon.classList.add('animate-spin');
+      label.textContent = 'Syncing…';
+
+      const targetPortal = 'https://www.notam.ais.gov.hk/';
+      const endpoints = [
+        targetPortal,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetPortal)}`,
+        `https://corsproxy.io/?url=${encodeURIComponent(targetPortal)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetPortal)}`,
+        `https://r.jina.ai/${targetPortal}`
+      ];
+
+      let fetchedList = [];
+      for (const url of endpoints) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 7000);
+          const resp = await fetch(url, { signal: ctrl.signal });
+          clearTimeout(timer);
+          if (!resp.ok) continue;
+          const text = await resp.text();
+          const found = extractSeriesCFromPayload(text);
+          if (found.length > 0) {
+            fetchedList = found;
+            break;
+          }
+        } catch {
+          // Try next endpoint
+        }
+      }
+
+      const hkt = getNowHKT();
+      if (fetchedList.length > 0) {
+        seriesCNotams = fetchedList.sort((a, b) => b.notamNo.localeCompare(a.notamNo));
+        saveNotams();
+        const activeCount = seriesCNotams.filter(isNotamActiveToday).length;
+        document.getElementById('notamSyncStatus').textContent = `Synced ${hkt.hhmm} (${activeCount}/${seriesCNotams.length})`;
+        showToast(`Fetched ${seriesCNotams.length} Series-C (${activeCount} active today)`, 'emerald');
+      } else {
+        document.getElementById('notamSyncStatus').textContent = `Cached (${hkt.hhmm})`;
+        showToast('Live fetch blocked by CORS — use + Paste to import', 'amber');
+      }
+
+      refreshAll();
+      isFetching = false;
+      icon.classList.remove('animate-spin');
+      label.textContent = 'Fetch NOTAM-C';
+    }
+
+    function toggleManualNotamPaste(force) {
+      const box = document.getElementById('manualNotamBox');
+      box.classList.toggle('hidden', typeof force === 'boolean' ? !force : undefined);
+    }
+
+    function handleManualNotamImport() {
+      const raw = document.getElementById('manualNotamInput').value.trim();
+      if (!raw) return showToast('Paste Series-C NOTAM text first.', 'amber');
+      const found = extractSeriesCFromPayload(raw);
+      if (!found.length) return showToast('No Series-C NOTAMs (C####/##) detected.', 'red');
+
+      const byNo = new Map(seriesCNotams.map(n => [n.notamNo, n]));
+      found.forEach(n => byNo.set(n.notamNo, n));
+      seriesCNotams = Array.from(byNo.values()).sort((a, b) => b.notamNo.localeCompare(a.notamNo));
+      saveNotams();
+      document.getElementById('manualNotamInput').value = '';
+      toggleManualNotamPaste(false);
+      refreshAll();
+      showToast(`Imported ${found.length} Series-C NOTAM(s)`, 'emerald');
+    }
+
+    /**
+     * ============================================================================
+     * 6. LEAFLET MAP & NOTAM RENDERER
+     * ============================================================================
+     */
+    function safeMove(lat, lng, zoom, fly = true) {
+      if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const sz = map.getSize();
+      if (!sz || sz.x <= 0 || sz.y <= 0) {
+        map.invalidateSize({ animate: false });
+        map.setView([lat, lng], zoom, { animate: false });
+        return;
+      }
+      if (fly) map.flyTo([lat, lng], zoom, { duration: 0.8 });
+      else map.setView([lat, lng], zoom, { animate: false });
+    }
+
+    function initMap() {
+      const hkGeo = L.layerGroup([
+        L.tileLayer('https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/basemap/wgs84/{z}/{x}/{y}.png', { maxZoom: 19, attribution: 'Lands Dept HKSAR' }),
+        L.tileLayer('https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/label/hk/en/wgs84/{z}/{x}/{y}.png', { maxZoom: 19 })
+      ]);
+      const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: 'CARTO' });
+      const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Esri' });
+
+      map = L.map('hkMap', {
+        center: [22.335, 114.14],
+        zoom: 11,
+        layers: [hkGeo],
+        zoomControl: false
+      });
+
+      L.control.zoom({ position: 'topright' }).addTo(map);
+      L.control.layers({ 'HK GeoInfo': hkGeo, 'Dark': dark, 'Satellite': sat }, null, { position: 'topright' }).addTo(map);
+
+      notamLayer = L.layerGroup().addTo(map);
+
+      map.on('mousemove', (e) => {
+        const { lat, lng } = e.latlng;
+        document.getElementById('cursorDD').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('cursorUTM').textContent = latLngToMgrs(lat, lng, 4) || '—';
+      });
+
+      const el = document.getElementById('hkMap');
+      if (typeof ResizeObserver !== 'undefined' && el) {
+        new ResizeObserver(() => map && map.invalidateSize({ animate: false })).observe(el);
+      }
+      setTimeout(() => map && map.invalidateSize({ animate: false }), 150);
+    }
+
+    function resetMapView() {
+      safeMove(22.335, 114.14, 11, true);
+    }
+
+    function getVisibleNotams() {
+      return scopeFilter === 'today'
+        ? seriesCNotams.filter(isNotamActiveToday)
+        : seriesCNotams.filter(n => getNotamStatus(n).code !== 'expired');
+    }
+
+    function renderNotamsOnMap() {
+      notamLayer.clearLayers();
+      Object.keys(notamLayersById).forEach(k => delete notamLayersById[k]);
+
+      for (const n of getVisibleNotams()) {
+        if (!Number.isFinite(n.lat) || !Number.isFinite(n.lng)) continue;
+        const st = getNotamStatus(n);
+
+        let shape = null;
+        if (n.geometryType === 'polygon' && Array.isArray(n.coordinates) && n.coordinates.length >= 3) {
+          shape = L.polygon(n.coordinates, { color: st.color, weight: 1.75, fillColor: st.color, fillOpacity: 0.16 }).addTo(notamLayer);
+        } else if (n.geometryType === 'polyline' && Array.isArray(n.coordinates) && n.coordinates.length >= 2) {
+          shape = L.polyline(n.coordinates, { color: st.color, weight: 3, dashArray: '6, 5' }).addTo(notamLayer);
+        } else {
+          shape = L.circle([n.lat, n.lng], { radius: n.radius || 400, color: st.color, weight: 1.5, fillColor: st.color, fillOpacity: 0.14, dashArray: '4, 4' }).addTo(notamLayer);
+        }
+
+        const pin = L.marker([n.lat, n.lng], {
+          icon: L.divIcon({
+            html: `<span class="px-1.5 py-0.5 rounded bg-slate-950/90 border border-blue-400/70 text-[9.5px] font-mono text-blue-200 shadow whitespace-nowrap">${esc(n.notamNo)}</span>`,
+            className: '',
+            iconSize: [56, 16],
+            iconAnchor: [28, 8]
+          })
+        }).addTo(notamLayer);
+
+        const utm = latLngToMgrs(n.lat, n.lng, 4);
+        const popup = `
+          <div class="space-y-1.5 text-xs max-w-[260px]">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono font-semibold text-blue-300">${esc(n.notamNo)}</span>
+              <span class="font-mono text-[10px] text-sky-300">${esc(n.upperLimit)}</span>
+            </div>
+            <div class="text-slate-100 leading-snug">${esc(n.title)}</div>
+            <div class="font-mono text-[10px] text-slate-400">${esc(n.schedule)}</div>
+            <div class="font-mono text-[10px] text-slate-400">${n.lat.toFixed(5)}, ${n.lng.toFixed(5)} · ${esc(utm)}</div>
+            <details class="pt-1 border-t border-slate-800">
+              <summary class="text-[10px] text-blue-400 cursor-pointer select-none">Raw NOTAM</summary>
+              <div class="mt-1 font-mono text-[9.5px] text-slate-300 max-h-24 overflow-y-auto thin-scroll select-text">${esc(n.rawText)}</div>
+            </details>
+          </div>
+        `;
+
+        const tip = `${n.notamNo} · ${n.upperLimit}`;
+        if (shape) shape.bindTooltip(tip, { sticky: true, className: 'notam-tip' }).bindPopup(popup);
+        pin.bindTooltip(tip, { direction: 'top', offset: [0, -8], className: 'notam-tip' }).bindPopup(popup);
+        notamLayersById[n.id] = pin;
+      }
+    }
+
+    function focusNotam(id) {
+      const n = seriesCNotams.find(x => x.id === id);
+      if (!n) return;
+      safeMove(n.lat, n.lng, (n.radius && n.radius <= 300) ? 16 : 13, true);
+      if (notamLayersById[id]) setTimeout(() => notamLayersById[id].openPopup(), 350);
+      if (window.innerWidth < 768) toggleMobileSidebar(false);
+    }
+
+    /**
+     * ============================================================================
+     * 7. MINIMALIST SIDEBAR LIST & UTILITIES
+     * ============================================================================
+     */
+    function setScopeFilter(scope) {
+      scopeFilter = scope;
+      const isToday = scope === 'today';
+      document.getElementById('filterTodayBtn').className = isToday
+        ? 'py-1 rounded-md font-medium bg-slate-800 text-white transition-colors'
+        : 'py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 transition-colors';
+      document.getElementById('filterAllBtn').className = !isToday
+        ? 'py-1 rounded-md font-medium bg-slate-800 text-white transition-colors'
+        : 'py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 transition-colors';
+      refreshAll();
+    }
+
+    function renderSidebarList() {
+      const box = document.getElementById('listContainer');
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      const allNonExpired = seriesCNotams.filter(n => getNotamStatus(n).code !== 'expired');
+      const activeTodayCount = allNonExpired.filter(isNotamActiveToday).length;
+      const ratioText = `(${activeTodayCount} / ${allNonExpired.length})`;
+
+      document.getElementById('notamRatio').textContent = ratioText;
+      document.getElementById('mobileBadgeCount').textContent = ratioText;
+
+      const items = getVisibleNotams().filter(n => !q || `${n.notamNo} ${n.title} ${n.rawText}`.toLowerCase().includes(q));
+      if (!items.length) {
+        box.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">${scopeFilter === 'today' ? 'No Series-C NOTAMs active today' : 'No Series-C NOTAMs'}</div>`;
+        return;
+      }
+
+      box.innerHTML = items.map(n => {
+        const st = getNotamStatus(n);
+        return `
+          <div onclick="focusNotam('${n.id}')" class="bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 hover:border-blue-500/40 rounded-lg p-2.5 cursor-pointer transition-colors">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${st.dot} shrink-0"></span>
+                <span class="font-mono text-xs font-semibold text-blue-300">${esc(n.notamNo)}</span>
+              </div>
+              <span class="font-mono text-[10.5px] text-sky-300">${esc(n.upperLimit)}</span>
+            </div>
+            <div class="mt-1 text-xs text-slate-200 line-clamp-2 leading-snug">${esc(n.title)}</div>
+            <div class="mt-1 font-mono text-[10px] text-slate-500 truncate">${esc(n.schedule)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleMobileSidebar(force) {
+      const el = document.getElementById('sidebar');
+      const open = typeof force === 'boolean' ? force : el.classList.contains('-translate-x-full');
+      el.classList.toggle('-translate-x-full', !open);
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg, tone = 'emerald') {
+      const tones = {
+        emerald: 'border-emerald-500/50 text-emerald-200',
+        amber: 'border-amber-500/50 text-amber-200',
+        red: 'border-rose-500/50 text-rose-200'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto bg-slate-950/95 border ${tones[tone] || tones.emerald} px-3 py-2 rounded-lg shadow-xl text-xs transition-opacity duration-300`;
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    function updateClock() {
+      const hkt = getNowHKT();
+      document.getElementById('hktClock').textContent = `${hkt.hhmm} HKT`;
+      document.getElementById('todayDateLabel').textContent = `${hkt.dateStr} HKT`;
+    }
+
+    function refreshAll() {
+      renderNotamsOnMap();
+      renderSidebarList();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      initMap();
+      updateClock();
+      refreshAll();
+      fetchSeriesCNotams();
+
+      setInterval(updateClock, 15000);
+      setInterval(refreshAll, 60000);
+    });
+  </script>
+</body>
+</html>

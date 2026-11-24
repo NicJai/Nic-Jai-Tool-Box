@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- iOS Safari Home Screen Standalone Web App Metadata -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Nicholas's Tools" />
+  <meta name="theme-color" content="#0b1120" id="themeColorMeta" />
+  <title>Nicholas's Web Tools</title>
+
+  <!-- Dynamically generated 180x180 PNG Apple Touch Icon & Favicon -->
+  <link id="appleTouchIconLink" rel="apple-touch-icon" sizes="180x180" href="" />
+  <link id="faviconLink" rel="icon" type="image/png" href="" />
+
+  <!-- Apply saved or system color theme immediately before first paint -->
+  <script>
+    (function initThemeEarly() {
+      try {
+        const saved = localStorage.getItem('web_toolkit_theme_v1');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'dark'); // Default to dark tactical slate
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
+  <style>
+    /* =====================================================================
+     * 1. DESIGN TOKENS & THEME PALETTE (Tactical Slate Dark / Crisp Light)
+     * ===================================================================== */
+    :root {
+      --bg-page: #f4f6f9;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #f8fafc;
+      --bg-header: rgba(255, 255, 255, 0.88);
+      --border-subtle: rgba(15, 23, 42, 0.09);
+      --border-strong: rgba(15, 23, 42, 0.16);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --accent-primary: #0f766e;
+      --accent-primary-hover: #115e59;
+      --accent-soft: rgba(15, 118, 110, 0.1);
+      --shadow-card: 0 2px 10px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.06);
+      --shadow-card-hover: 0 12px 24px -6px rgba(15, 23, 42, 0.1), 0 4px 8px -2px rgba(15, 23, 42, 0.05);
+      --shadow-modal: 0 24px 48px -12px rgba(15, 23, 42, 0.28);
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang HK", "Noto Sans TC", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #090e1a;
+      --bg-surface: #111827;
+      --bg-surface-elevated: #192234;
+      --bg-header: rgba(17, 24, 39, 0.88);
+      --border-subtle: rgba(148, 163, 184, 0.13);
+      --border-strong: rgba(148, 163, 184, 0.24);
+      --text-primary: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --accent-primary: #14b8a6;
+      --accent-primary-hover: #2dd4bf;
+      --accent-soft: rgba(20, 184, 166, 0.14);
+      --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.35);
+      --shadow-card-hover: 0 14px 28px -6px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(45, 212, 191, 0.25);
+      --shadow-modal: 0 28px 56px -12px rgba(0, 0, 0, 0.72);
+    }
+
+    /* =====================================================================
+     * 2. RESET & BASE LAYOUT
+     * ===================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      -webkit-text-size-adjust: 100%;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* =====================================================================
+     * 3. STICKY EXECUTIVE HEADER & CONTROLS
+     * ===================================================================== */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--bg-header);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .header-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0f766e 0%, #0369a1 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(15, 118, 110, 0.28);
+    }
+
+    .brand-text {
+      min-width: 0;
+    }
+
+    .brand-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title {
+      font-size: 1.125rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tool-count-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-primary);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 38px;
+      padding: 8px 13px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 700;
+      transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background-color: var(--accent-primary);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+    }
+
+    [data-theme="dark"] .btn-primary {
+      color: #042f2e;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--border-strong);
+      background-color: var(--bg-surface);
+    }
+
+    .btn-icon-only {
+      width: 38px;
+      padding: 0;
+    }
+
+    .btn-label-desktop {
+      display: none;
+    }
+
+    @media (min-width: 600px) {
+      .btn-label-desktop {
+        display: inline;
+      }
+      .brand-title {
+        font-size: 1.25rem;
+      }
+    }
+
+    /* Search & Category Bar */
+    .filter-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    @media (min-width: 768px) {
+      .filter-controls {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+      max-width: 420px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 40px;
+      padding: 0 36px 0 36px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      color: var(--text-muted);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .search-clear-btn.visible {
+      display: flex;
+    }
+
+    .search-clear-btn:hover {
+      background-color: var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .category-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+
+    .category-pills::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pill-btn {
+      white-space: nowrap;
+      padding: 6px 12px;
+      min-height: 34px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .pill-btn:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .pill-btn.active {
+      background-color: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .pill-btn.active {
+      color: #042f2e;
+    }
+
+    /* =====================================================================
+     * 4. MAIN LAUNCH GRID & TACTILE TOOL CARDS
+     * ===================================================================== */
+    .main-container {
+      flex: 1;
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+    }
+
+    .sync-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-primary);
+      font-size: 0.82rem;
+    }
+
+    .sync-banner.visible {
+      display: flex;
+    }
+
+    .sync-banner-text {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .tools-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .tools-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+    }
+
+    .tool-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: var(--shadow-card);
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+      position: relative;
+    }
+
+    .tool-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card-hover);
+      border-color: var(--border-strong);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-icon-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 1.45rem;
+      line-height: 1;
+      color: #ffffff;
+      box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-meta-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .category-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 8px;
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .card-edit-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .card-edit-btn:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-primary);
+    }
+
+    .card-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+
+    .card-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .card-file-path {
+      margin-top: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      background-color: var(--bg-surface-elevated);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      align-self: flex-start;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .btn-open-tool {
+      flex: 1;
+      min-height: 40px;
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-open-tool:hover {
+      background-color: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .btn-open-tool:hover {
+      color: #042f2e;
+    }
+
+    .btn-copy-link {
+      min-height: 40px;
+      padding: 0 12px;
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-copy-link:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+      background-color: var(--bg-surface);
+    }
+
+    /* Empty Search State */
+    .empty-state {
+      text-align: center;
+      padding: 56px 20px;
+      background-color: var(--bg-surface);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .empty-state.visible {
+      display: flex;
+    }
+
+    .empty-state h3 {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .empty-state p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      max-width: 360px;
+    }
+
+    /* =====================================================================
+     * 5. FOOTER
+     * ===================================================================== */
+    .app-footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .app-footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* =====================================================================
+     * 6. MODALS (Add / Edit Tools & Export Updated index.html)
+     * ===================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background-color: rgba(2, 6, 23, 0.68);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0;
+    }
+
+    @media (min-width: 640px) {
+      .modal-backdrop {
+        align-items: center;
+        padding: 16px;
+      }
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-panel {
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 24px 24px 0 0;
+      box-shadow: var(--shadow-modal);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    @media (min-width: 640px) {
+      .modal-panel {
+        border-radius: 24px;
+        padding-bottom: 0;
+      }
+    }
+
+    .modal-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .modal-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .modal-body {
+      padding: 18px 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 520px) {
+      .form-grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .icon-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    .icon-choice-btn {
+      height: 42px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background-color: var(--bg-surface-elevated);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      transition: all 0.12s ease;
+    }
+
+    .icon-choice-btn.selected {
+      border-color: var(--accent-primary);
+      background-color: var(--accent-soft);
+      color: var(--accent-primary);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    .color-picker-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .color-swatch-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 2px solid transparent;
+      transition: transform 0.12s ease;
+    }
+
+    .color-swatch-btn.selected {
+      transform: scale(1.14);
+      box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text-primary);
+    }
+
+    .managed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 14px;
+    }
+
+    .managed-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .managed-item-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .managed-item-title {
+      font-size: 0.86rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .managed-item-sub {
+      font-size: 0.74rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .managed-item-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .mini-icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      background-color: var(--bg-surface);
+    }
+
+    .mini-icon-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .mini-icon-btn.danger:hover {
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-subtle);
+      background-color: var(--bg-surface-elevated);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: calc(22px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 70;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      width: 90%;
+      max-width: 380px;
+    }
+
+    .toast-msg {
+      padding: 10px 16px;
+      border-radius: 12px;
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      text-align: center;
+    }
+
+    [data-theme="light"] .toast-msg {
+      background-color: #1e293b;
+    }
+
+    .toast-msg.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ===================================================================== -->
+  <!-- STICKY HEADER                                                         -->
+  <!-- ===================================================================== -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-top-row">
+        <div class="brand-group">
+          <div class="brand-logo" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <div class="brand-title-row">
+              <h1 id="hubTitleEl" class="brand-title">Nicholas's Web Tools</h1>
+              <span id="toolCountBadge" class="tool-count-pill">3 tools</span>
+            </div>
+            <p id="hubSubtitleEl" class="brand-subtitle">Personal Operational &amp; Daily Utility Suite</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="openManageModalBtn" type="button" class="btn btn-primary" aria-label="Add or edit tools">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Add / Edit</span>
+          </button>
+
+          <button id="exportHubHeaderBtn" type="button" class="btn btn-secondary" title="Export standalone index.html with your changes baked in">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span class="btn-label-desktop">Export HTML</span>
+          </button>
+
+          <button id="themeToggleBtn" type="button" class="btn btn-secondary btn-icon-only" aria-label="Toggle dark or light theme" title="Toggle Dark / Light Theme">
+            <svg id="iconSun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+            <svg id="iconMoon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search + Category Filter Pills -->
+      <div class="filter-controls">
+        <div class="search-box">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            id="searchInput"
+            type="search"
+            class="search-input"
+            placeholder="Search tools by title, file, description, or tag..."
+            autocomplete="off"
+            aria-label="Search tools"
+          />
+          <button id="clearSearchBtn" type="button" class="search-clear-btn" aria-label="Clear search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div id="categoryPillsContainer" class="category-pills" role="tablist" aria-label="Filter by category">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN CONTENT                                                          -->
+  <!-- ===================================================================== -->
+  <main class="main-container">
+    <!-- Banner shown when local edits exist that haven't been exported to GitHub yet -->
+    <div id="localChangesBanner" class="sync-banner" role="status">
+      <span class="sync-banner-text">
+        You have local edits saved in this browser. Export <code>index.html</code> to commit them to GitHub Pages for all devices.
+      </span>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="bannerExportBtn" type="button" class="btn btn-primary" style="min-height:32px; padding:4px 12px; font-size:0.78rem;">
+          Export Updated index.html
+        </button>
+        <button id="bannerResetBtn" type="button" class="btn btn-secondary" style="min-height:32px; padding:4px 10px; font-size:0.78rem;">
+          Reset to File Defaults
+        </button>
+      </div>
+    </div>
+
+    <!-- Launch Grid -->
+    <section id="toolsGrid" class="tools-grid" aria-label="Web tools launcher grid">
+      <!-- Cards rendered by JS -->
+    </section>
+
+    <!-- Empty Search State -->
+    <div id="emptyState" class="empty-state">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+      <h3>No matching tools found</h3>
+      <p>Try clearing your search filter or add a new HTML tool to this repository hub.</p>
+      <button id="resetFilterBtn" type="button" class="btn btn-secondary">Show All Tools</button>
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- FOOTER                                                                -->
+  <!-- ===================================================================== -->
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <p>GitHub Pages Static Hub · Zero external dependencies · Add to iPhone Home Screen for one-tap access</p>
+    </div>
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: + ADD / EDIT TOOLS & EXPORT UPDATED index.html                 -->
+  <!-- ===================================================================== -->
+  <div id="manageModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="manageModalTitle">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <h2 id="manageModalTitle" class="modal-title">Manage Toolkit Hub</h2>
+          <p class="modal-subtitle">Add, edit, or reorder tools, then export <code>index.html</code> for GitHub Pages</p>
+        </div>
+        <button id="closeManageModalBtn" type="button" class="btn btn-secondary btn-icon-only" aria-label="Close modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Hub Title Customization -->
+        <details style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:12px; padding:10px 12px;">
+          <summary style="font-size:0.8rem; font-weight:700; cursor:pointer; color:var(--text-secondary);">
+            Hub Title &amp; Subtitle Settings
+          </summary>
+          <div class="form-grid form-grid-2" style="margin-top:10px;">
+            <div class="form-field">
+              <label class="form-label" for="hubTitleInput">Hub Title</label>
+              <input id="hubTitleInput" type="text" class="form-control" placeholder="Web Toolkit Hub · 工具箱" />
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="hubSubtitleInput">Hub Subtitle</label>
+              <input id="hubSubtitleInput" type="text" class="form-control" placeholder="Single-file HTML utilities" />
+            </div>
+          </div>
+        </details>
+
+        <!-- Add / Edit Tool Form -->
+        <form id="toolForm" style="display:flex; flex-direction:column; gap:12px;">
+          <input type="hidden" id="editingToolId" value="" />
+
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span id="formModeLabel" style="font-size:0.84rem; font-weight:800; color:var(--accent-primary);">+ Add New HTML Tool</span>
+            <button id="cancelEditFormBtn" type="button" style="display:none; font-size:0.76rem; font-weight:700; color:var(--text-muted); text-decoration:underline;">
+              Cancel Edit
+            </button>
+          </div>
+
+          <div class="form-grid form-grid-2">
+            <div class="form-field">
+              <label class="form-label" for="toolTitleInput">Tool Title *</label>
+              <input id="toolTitleInput" type="text" class="form-control" placeholder="e.g., 荔景出行實時交通" required />
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="toolPathInput">Relative File Path or URL *</label>
+              <input id="toolPathInput" type="text" class="form-control" placeholder="e.g., ./lai-king-transit.html" required />
+            </div>
+          </div>
+
+          <div class="form-grid form-grid-2">
+            <div class="form-field">
+              <label class="form-label" for="toolCategoryInput">Category *</label>
+              <input id="toolCategoryInput" list="categorySuggestions" class="form-control" placeholder="Daily / Medical / Aviation" required />
+              <datalist id="categorySuggestions">
+                <option value="Daily"></option>
+                <option value="Medical"></option>
+                <option value="Aviation"></option>
+                <option value="Utilities"></option>
+              </datalist>
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="toolTagsInput">Search Tags (comma-separated)</label>
+              <input id="toolTagsInput" type="text" class="form-control" placeholder="minibus, mtr, weather" />
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label" for="toolDescInput">Concise Description</label>
+            <input id="toolDescInput" type="text" class="form-control" placeholder="荔景紀律部隊宿舍樓下專線小巴、荔景站港鐵實時班次..." />
+          </div>
+
+          <div class="form-grid form-grid-2">
+            <div class="form-field">
+              <label class="form-label">Emoji / Icon</label>
+              <div id="iconPickerGrid" class="icon-picker-grid"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Badge Accent Color</label>
+              <div id="colorPickerRow" class="color-picker-row"></div>
+            </div>
+          </div>
+
+          <button id="saveToolBtn" type="submit" class="btn btn-primary" style="width:100%;">
+            Save Tool to Hub
+          </button>
+        </form>
+
+        <!-- Existing Tools List (Reorder / Edit / Delete) -->
+        <div class="managed-list">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:0.8rem; font-weight:800; color:var(--text-secondary);">Current Tools Order</span>
+            <span style="font-size:0.72rem; color:var(--text-muted);">Use arrows to reorder</span>
+          </div>
+          <div id="managedToolsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="copySourceBtn" type="button" class="btn btn-secondary" title="Copy updated index.html code to clipboard">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          <span>Copy HTML Code</span>
+        </button>
+
+        <button id="downloadHtmlBtn" type="button" class="btn btn-primary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>Export Updated index.html</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION SCRIPT                                                    -->
+  <!-- ===================================================================== -->
+  <script>
+    'use strict';
+
+    /* =====================================================================
+     * 1. HUB CONFIGURATION BLOCK (Edit directly here or via the UI + Export)
+     * ===================================================================== */
+    // /* HUB_CONFIG_START */
+    const HUB_META = {
+      title: "Nicholas's Web Tools",
+      subtitle: "Personal Operational & Daily Utility Suite"
+    };
+
+    const TOOLS = [
+      {
+        id: "lai-king-transit",
+        title: "荔景出行實時交通",
+        category: "Daily",
+        description: "荔景紀律部隊宿舍樓下專線小巴、荔景站港鐵實時班次、返工/放工自動切換及天文台天氣提示。",
+        url: "lai-king-transit.html",
+        icon: "🚌",
+        color: "#007A3D",
+        tags: ["minibus", "mtr", "lai king", "weather", "commute", "小巴", "港鐵", "荔景"]
+      },
+      {
+        id: "aeromed-vitals",
+        title: "AeroMed Vitals Logger",
+        category: "Medical",
+        description: "直升機飛行任務（CASEVAC / SAR）傷病者生命表徵快速紀錄及 Notion 報告匯出工具。",
+        url: "aeromed-vitals.html",
+        icon: "🚁",
+        color: "#0284C7",
+        tags: ["vitals", "aeromedical", "casevac", "sar", "notion", "medical", "helicopter"]
+      },
+      {
+        id: "hk-sua-map",
+        title: "HK SUA Dispatch Map",
+        category: "Aviation",
+        description: "香港民航處 AIS NOTAM 解析、WGS84 / MGRS 座標轉換及臨時空域限制互動地圖。",
+        url: "hk-sua-map.html",
+        icon: "🗺️",
+        color: "#D97706",
+        tags: ["airspace", "sua", "map", "notam", "mgrs", "wgs84", "aviation", "cad"]
+      }
+    ];
+    // /* HUB_CONFIG_END */
+
+    /* =====================================================================
+     * 2. EMOJI & INLINE SVG ICONS + COLOR SWATCHES
+     * ===================================================================== */
+    const ICON_CHOICES = [
+      { key: '🚌', label: 'Minibus / Transit' },
+      { key: '🚁', label: 'Helicopter / SAR' },
+      { key: '🗺️', label: 'Map / Airspace' },
+      { key: '🩺', label: 'Medical / Clinical' },
+      { key: '🧭', label: 'Navigation / Compass' },
+      { key: '🛠️', label: 'Utility / Tool' },
+    ];
+
+    const LEGACY_SVG_ICONS = {
+      transit: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v12m8-12v12M4 10h16M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm1 14v2m12-2v2"/></svg>`,
+      medical: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+      map: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`,
+      clipboard: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>`,
+      compass: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`,
+      wrench: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+    };
+
+    function renderToolIconContent(iconValue) {
+      if (!iconValue) return '🛠️';
+      if (LEGACY_SVG_ICONS[iconValue]) return LEGACY_SVG_ICONS[iconValue];
+      return escapeHtml(iconValue);
+    }
+
+    const ACCENT_COLORS = [
+      '#007A3D', // GMB Emerald
+      '#0284C7', // Sky Blue
+      '#0F766E', // Tactical Teal
+      '#D97706', // Amber
+      '#7C3AED', // Violet
+      '#DC2626', // Crimson
+      '#2563EB', // Royal Blue
+      '#475569', // Slate
+    ];
+
+    const STORAGE_KEYS = {
+      THEME: 'web_toolkit_theme_v1',
+      TOOLS: 'web_toolkit_custom_tools_v2',
+      META: 'web_toolkit_custom_meta_v2',
+    };
+
+    /* =====================================================================
+     * 3. APPLICATION STATE
+     * ===================================================================== */
+    const state = {
+      meta: { ...HUB_META },
+      tools: [],
+      hasLocalOverrides: false,
+      searchQuery: '',
+      activeCategory: 'All',
+      selectedIcon: '🚌',
+      selectedColor: ACCENT_COLORS[0],
+    };
+
+    /* =====================================================================
+     * 4. DYNAMIC APPLE TOUCH ICON GENERATOR (180x180 PNG via HTML5 Canvas)
+     * ===================================================================== */
+    function generateHubTouchIcon() {
+      try {
+        const size = 180;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        function roundRect(x, y, w, h, r) {
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+        }
+
+        // Deep tactical slate-teal background gradient
+        const grad = ctx.createLinearGradient(0, 0, size, size);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.55, '#115e59');
+        grad.addColorStop(1, '#0284c7');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        // Subtle grid accent lines
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(18, 18, size - 36, size - 36);
+
+        // 2x2 Launcher Tiles
+        const tiles = [
+          { x: 40, y: 36, color: '#10b981' },
+          { x: 96, y: 36, color: '#38bdf8' },
+          { x: 40, y: 92, color: '#f59e0b' },
+          { x: 96, y: 92, color: '#a78bfa' },
+        ];
+
+        tiles.forEach((t) => {
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 4;
+          roundRect(t.x, t.y, 44, 44, 12);
+          ctx.fillStyle = t.color;
+          ctx.fill();
+          ctx.restore();
+
+          roundRect(t.x + 11, t.y + 11, 22, 22, 5);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+          ctx.fill();
+        });
+
+        // Bottom Label
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '800 18px -apple-system, BlinkMacSystemFont, "PingFang HK", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('TOOLKIT HUB', size / 2, 156);
+
+        const pngUrl = canvas.toDataURL('image/png');
+        const appleLink = document.getElementById('appleTouchIconLink');
+        const favLink = document.getElementById('faviconLink');
+        if (appleLink) appleLink.href = pngUrl;
+        if (favLink) favLink.href = pngUrl;
+      } catch (e) {
+        // Ignore if canvas dataURL is restricted
+      }
+    }
+
+    /* =====================================================================
+     * 5. UTILITIES & CLIPBOARD / EXPORT HELPERS
+     * ===================================================================== */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function showToast(message) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const el = document.createElement('div');
+      el.className = 'toast-msg';
+      el.textContent = message;
+      container.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 220);
+      }, 2500);
+    }
+
+    // Copy text reliably across mobile Safari, desktop, and sandboxed iframes
+    function copyTextToClipboard(text, successMsg) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (ok) {
+          showToast(successMsg || 'Copied to clipboard');
+          return true;
+        }
+      } catch (e) {
+        // Fallback below
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          () => showToast(successMsg || 'Copied to clipboard'),
+          () => showToast('Unable to copy automatically')
+        );
+      }
+      return false;
+    }
+
+    function resolveFullUrl(relativeOrAbsolutePath) {
+      try {
+        return new URL(relativeOrAbsolutePath, window.location.href).href;
+      } catch (e) {
+        return relativeOrAbsolutePath;
+      }
+    }
+
+    function persistLocalState() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.TOOLS, JSON.stringify(state.tools));
+        localStorage.setItem(STORAGE_KEYS.META, JSON.stringify(state.meta));
+        state.hasLocalOverrides = true;
+        updateSyncBannerVisibility();
+      } catch (e) {
+        showToast('Browser storage unavailable; remember to export index.html');
+      }
+    }
+
+    /**
+     * Builds a clean, self-contained HTML string of the current page with the
+     * user's updated HUB_META and TOOLS array baked directly into the script.
+     */
+    function buildUpdatedHtmlSource() {
+      // Clone current DOM so runtime UI modals/toasts/cards can be cleaned to initial state
+      const clone = document.documentElement.cloneNode(true);
+
+      // Reset runtime modal/toast/banner classes on the exported snapshot
+      const modal = clone.querySelector('#manageModal');
+      if (modal) modal.classList.remove('open');
+      const banner = clone.querySelector('#localChangesBanner');
+      if (banner) banner.classList.remove('visible');
+      const toastBox = clone.querySelector('#toastContainer');
+      if (toastBox) toastBox.innerHTML = '';
+      const grid = clone.querySelector('#toolsGrid');
+      if (grid) grid.innerHTML = '<!-- Cards rendered by JS -->';
+
+      let fullHtml = '<!DOCTYPE html>\n' + clone.outerHTML;
+
+      const configReplacement =
+        `// /* HUB_CONFIG_START */\n` +
+        `    const HUB_META = ${JSON.stringify(state.meta, null, 6).replace(/\n}$/, '\n    }')};\n\n` +
+        `    const TOOLS = ${JSON.stringify(state.tools, null, 6).replace(/\n\]$/, '\n    ]')};\n` +
+        `    // /* HUB_CONFIG_END */`;
+
+      const configRegex = /\/\/ \/\* HUB_CONFIG_START \*\/[\s\S]*?\/\/ \/\* HUB_CONFIG_END \*\//;
+      if (configRegex.test(fullHtml)) {
+        fullHtml = fullHtml.replace(configRegex, configReplacement);
+      }
+      return fullHtml;
+    }
+
+    function exportUpdatedIndexHtmlFile() {
+      const updatedSource = buildUpdatedHtmlSource();
+      const blob = new Blob([updatedSource], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('Downloaded updated index.html — commit it to GitHub Pages!');
+    }
+
+    /* =====================================================================
+     * 6. RENDERING FUNCTIONS
+     * ===================================================================== */
+    function updateSyncBannerVisibility() {
+      const banner = document.getElementById('localChangesBanner');
+      if (!banner) return;
+      banner.classList.toggle('visible', state.hasLocalOverrides);
+    }
+
+    function renderHeaderMeta() {
+      const titleEl = document.getElementById('hubTitleEl');
+      const subEl = document.getElementById('hubSubtitleEl');
+      const badgeEl = document.getElementById('toolCountBadge');
+
+      if (titleEl) titleEl.textContent = state.meta.title || 'Web Toolkit Hub';
+      if (subEl) subEl.textContent = state.meta.subtitle || '';
+      if (badgeEl) {
+        const count = state.tools.length;
+        badgeEl.textContent = `${count} ${count === 1 ? 'tool' : 'tools'}`;
+      }
+      document.title = state.meta.title || 'Web Toolkit Hub';
+    }
+
+    function renderCategoryPills() {
+      const container = document.getElementById('categoryPillsContainer');
+      if (!container) return;
+
+      const categories = ['All'];
+      state.tools.forEach((tool) => {
+        const cat = (tool.category || '').trim();
+        if (cat && !categories.includes(cat)) {
+          categories.push(cat);
+        }
+      });
+
+      if (!categories.includes(state.activeCategory)) {
+        state.activeCategory = 'All';
+      }
+
+      container.innerHTML = categories
+        .map((cat) => {
+          const isActive = cat === state.activeCategory;
+          return `<button type="button" class="pill-btn ${isActive ? 'active' : ''}" data-category="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
+        })
+        .join('');
+    }
+
+    function renderToolsGrid() {
+      const grid = document.getElementById('toolsGrid');
+      const emptyState = document.getElementById('emptyState');
+      if (!grid || !emptyState) return;
+
+      const query = state.searchQuery.trim().toLowerCase();
+
+      const filtered = state.tools.filter((tool) => {
+        const toolHref = tool.url || tool.path || '';
+        const matchesCategory =
+          state.activeCategory === 'All' || tool.category === state.activeCategory;
+        if (!matchesCategory) return false;
+
+        if (!query) return true;
+        const haystack = [
+          tool.title,
+          tool.description,
+          tool.category,
+          toolHref,
+          ...(Array.isArray(tool.tags) ? tool.tags : []),
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.add('visible');
+        return;
+      }
+
+      emptyState.classList.remove('visible');
+
+      grid.innerHTML = filtered
+        .map((tool) => {
+          const iconHtml = renderToolIconContent(tool.icon);
+          const accentColor = tool.color || '#0F766E';
+          const toolHref = tool.url || tool.path || '#';
+          const safePath = escapeHtml(toolHref);
+
+          return `
+            <article class="tool-card">
+              <div>
+                <div class="card-top">
+                  <div class="card-icon-badge" style="background-color: ${escapeHtml(accentColor)};" aria-hidden="true">
+                    ${iconHtml}
+                  </div>
+                  <div class="card-meta-right">
+                    <span class="category-badge">${escapeHtml(tool.category || 'General')}</span>
+                    <button type="button" class="card-edit-btn" data-action="edit-card" data-id="${escapeHtml(tool.id)}" title="Edit tool" aria-label="Edit ${escapeHtml(tool.title)}">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="card-body" style="margin-top:14px;">
+                  <h2 class="card-title">${escapeHtml(tool.title)}</h2>
+                  <p class="card-desc">${escapeHtml(tool.description || 'Single-file standalone HTML tool.')}</p>
+                  <span class="card-file-path" title="${safePath}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    ${safePath}
+                  </span>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <a href="${safePath}" class="btn-open-tool">
+                  <span>開啟工具 / Open</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="7" y1="17" x2="17" y2="7" />
+                    <polyline points="7 7 17 7 17 17" />
+                  </svg>
+                </a>
+                <button
+                  type="button"
+                  class="btn-copy-link"
+                  data-action="copy-url"
+                  data-path="${safePath}"
+                  data-title="${escapeHtml(tool.title)}"
+                  title="Copy full direct link to share"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  <span>複製連結 / Copy URL</span>
+                </button>
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+    }
+
+    /* =====================================================================
+     * 7. MANAGE MODAL (ADD / EDIT / REORDER / DELETE)
+     * ===================================================================== */
+    function renderIconAndColorPickers() {
+      const iconGrid = document.getElementById('iconPickerGrid');
+      const colorRow = document.getElementById('colorPickerRow');
+
+      if (iconGrid) {
+        iconGrid.innerHTML = ICON_CHOICES
+          .map((item) => {
+            const selected = item.key === state.selectedIcon ? 'selected' : '';
+            return `<button type="button" class="icon-choice-btn ${selected}" data-pick-icon="${escapeHtml(item.key)}" title="${escapeHtml(item.label)}" style="font-size:1.25rem;">${escapeHtml(item.key)}</button>`;
+          })
+          .join('');
+      }
+
+      if (colorRow) {
+        colorRow.innerHTML = ACCENT_COLORS.map((hex) => {
+          const selected = hex === state.selectedColor ? 'selected' : '';
+          return `<button type="button" class="color-swatch-btn ${selected}" data-pick-color="${hex}" style="background-color:${hex};" aria-label="Color ${hex}"></button>`;
+        }).join('');
+      }
+    }
+
+    function renderManagedToolsList() {
+      const container = document.getElementById('managedToolsContainer');
+      if (!container) return;
+
+      if (state.tools.length === 0) {
+        container.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:12px;">No tools added yet. Use the form above to add one.</p>`;
+        return;
+      }
+
+      container.innerHTML = state.tools
+        .map((tool, index) => {
+          const toolHref = tool.url || tool.path || '';
+          return `
+            <div class="managed-item">
+              <div class="managed-item-info">
+                <div class="managed-item-title">${escapeHtml(tool.title)}</div>
+                <div class="managed-item-sub">${escapeHtml(toolHref)} · ${escapeHtml(tool.category)}</div>
+              </div>
+              <div class="managed-item-actions">
+                <button type="button" class="mini-icon-btn" data-manage-action="up" data-index="${index}" ${index === 0 ? 'disabled style="opacity:0.35;"' : ''} title="Move up" aria-label="Move up">
+                  ↑
+                </button>
+                <button type="button" class="mini-icon-btn" data-manage-action="down" data-index="${index}" ${index === state.tools.length - 1 ? 'disabled style="opacity:0.35;"' : ''} title="Move down" aria-label="Move down">
+                  ↓
+                </button>
+                <button type="button" class="mini-icon-btn" data-manage-action="edit" data-id="${escapeHtml(tool.id)}" title="Edit" aria-label="Edit">
+                  ✎
+                </button>
+                <button type="button" class="mini-icon-btn danger" data-manage-action="delete" data-id="${escapeHtml(tool.id)}" title="Remove" aria-label="Remove">
+                  ✕
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function resetToolFormToAddMode() {
+      document.getElementById('editingToolId').value = '';
+      document.getElementById('toolTitleInput').value = '';
+      document.getElementById('toolPathInput').value = '';
+      document.getElementById('toolCategoryInput').value = '';
+      document.getElementById('toolTagsInput').value = '';
+      document.getElementById('toolDescInput').value = '';
+      state.selectedIcon = '🚌';
+      state.selectedColor = ACCENT_COLORS[0];
+      document.getElementById('formModeLabel').textContent = '+ Add New HTML Tool';
+      document.getElementById('saveToolBtn').textContent = 'Add Tool to Hub';
+      document.getElementById('cancelEditFormBtn').style.display = 'none';
+      renderIconAndColorPickers();
+    }
+
+    function populateFormForEdit(toolId) {
+      const tool = state.tools.find((t) => t.id === toolId);
+      if (!tool) return;
+
+      document.getElementById('editingToolId').value = tool.id;
+      document.getElementById('toolTitleInput').value = tool.title || '';
+      document.getElementById('toolPathInput').value = tool.url || tool.path || '';
+      document.getElementById('toolCategoryInput').value = tool.category || '';
+      document.getElementById('toolTagsInput').value = Array.isArray(tool.tags) ? tool.tags.join(', ') : '';
+      document.getElementById('toolDescInput').value = tool.description || '';
+      state.selectedIcon = tool.icon || '🛠️';
+      state.selectedColor = tool.color || ACCENT_COLORS[0];
+
+      document.getElementById('formModeLabel').textContent = `Editing: ${tool.title}`;
+      document.getElementById('saveToolBtn').textContent = 'Update Tool';
+      document.getElementById('cancelEditFormBtn').style.display = 'inline';
+      renderIconAndColorPickers();
+    }
+
+    function openManageModal(editToolId = null) {
+      document.getElementById('hubTitleInput').value = state.meta.title || '';
+      document.getElementById('hubSubtitleInput').value = state.meta.subtitle || '';
+
+      if (editToolId) {
+        populateFormForEdit(editToolId);
+      } else {
+        resetToolFormToAddMode();
+      }
+
+      renderManagedToolsList();
+      const modal = document.getElementById('manageModal');
+      modal.classList.add('open');
+    }
+
+    function closeManageModal() {
+      const modal = document.getElementById('manageModal');
+      modal.classList.remove('open');
+    }
+
+    /* =====================================================================
+     * 8. THEME TOGGLE & EVENT LISTENERS
+     * ===================================================================== */
+    function syncThemeIcons() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const sun = document.getElementById('iconSun');
+      const moon = document.getElementById('iconMoon');
+      const metaTheme = document.getElementById('themeColorMeta');
+
+      if (sun && moon) {
+        sun.style.display = current === 'dark' ? 'block' : 'none';
+        moon.style.display = current === 'dark' ? 'none' : 'block';
+      }
+      if (metaTheme) {
+        metaTheme.setAttribute('content', current === 'dark' ? '#090e1a' : '#f4f6f9');
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try {
+        localStorage.setItem(STORAGE_KEYS.THEME, next);
+      } catch (e) {
+        // Ignore storage restrictions
+      }
+      syncThemeIcons();
+    }
+
+    function bindEvents() {
+      // Theme toggle
+      document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+
+      // Search bar
+      const searchInput = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('clearSearchBtn');
+
+      searchInput.addEventListener('input', () => {
+        state.searchQuery = searchInput.value;
+        clearBtn.classList.toggle('visible', state.searchQuery.length > 0);
+        renderToolsGrid();
+      });
+
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        state.searchQuery = '';
+        clearBtn.classList.remove('visible');
+        renderToolsGrid();
+        searchInput.focus();
+      });
+
+      document.getElementById('resetFilterBtn').addEventListener('click', () => {
+        searchInput.value = '';
+        state.searchQuery = '';
+        state.activeCategory = 'All';
+        clearBtn.classList.remove('visible');
+        renderCategoryPills();
+        renderToolsGrid();
+      });
+
+      // Category filter pills
+      document.getElementById('categoryPillsContainer').addEventListener('click', (e) => {
+        const pill = e.target.closest('button[data-category]');
+        if (!pill) return;
+        state.activeCategory = pill.dataset.category;
+        renderCategoryPills();
+        renderToolsGrid();
+      });
+
+      // Tool cards delegation (Copy URL & quick Edit)
+      document.getElementById('toolsGrid').addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('button[data-action="copy-url"]');
+        if (copyBtn) {
+          const fullUrl = resolveFullUrl(copyBtn.dataset.path);
+          copyTextToClipboard(fullUrl, `Copied link for "${copyBtn.dataset.title}"`);
+          return;
+        }
+
+        const editBtn = e.target.closest('button[data-action="edit-card"]');
+        if (editBtn) {
+          openManageModal(editBtn.dataset.id);
+        }
+      });
+
+      // Header & Banner Export / Manage buttons
+      document.getElementById('openManageModalBtn').addEventListener('click', () => openManageModal());
+      document.getElementById('exportHubHeaderBtn').addEventListener('click', exportUpdatedIndexHtmlFile);
+      document.getElementById('bannerExportBtn').addEventListener('click', exportUpdatedIndexHtmlFile);
+
+      document.getElementById('bannerResetBtn').addEventListener('click', () => {
+        try {
+          localStorage.removeItem(STORAGE_KEYS.TOOLS);
+          localStorage.removeItem(STORAGE_KEYS.META);
+        } catch (e) {
+          // Ignore
+        }
+        state.meta = { ...HUB_META };
+        state.tools = TOOLS.map((t) => ({ ...t }));
+        state.hasLocalOverrides = false;
+        updateSyncBannerVisibility();
+        renderHeaderMeta();
+        renderCategoryPills();
+        renderToolsGrid();
+        showToast('Reset to embedded index.html defaults');
+      });
+
+      // Modal open/close
+      document.getElementById('closeManageModalBtn').addEventListener('click', closeManageModal);
+      document.getElementById('manageModal').addEventListener('click', (e) => {
+        if (e.target.id === 'manageModal') closeManageModal();
+      });
+
+      // Hub title/subtitle live update inside modal
+      document.getElementById('hubTitleInput').addEventListener('input', (e) => {
+        state.meta.title = e.target.value.trim() || 'Web Toolkit Hub';
+        persistLocalState();
+        renderHeaderMeta();
+      });
+
+      document.getElementById('hubSubtitleInput').addEventListener('input', (e) => {
+        state.meta.subtitle = e.target.value.trim();
+        persistLocalState();
+        renderHeaderMeta();
+      });
+
+      // Icon & Color pickers
+      document.getElementById('iconPickerGrid').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-pick-icon]');
+        if (!btn) return;
+        state.selectedIcon = btn.dataset.pickIcon;
+        renderIconAndColorPickers();
+      });
+
+      document.getElementById('colorPickerRow').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-pick-color]');
+        if (!btn) return;
+        state.selectedColor = btn.dataset.pickColor;
+        renderIconAndColorPickers();
+      });
+
+      document.getElementById('cancelEditFormBtn').addEventListener('click', resetToolFormToAddMode);
+
+      // Add / Edit Tool form submission
+      document.getElementById('toolForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const editingId = document.getElementById('editingToolId').value.trim();
+        const title = document.getElementById('toolTitleInput').value.trim();
+        const url = document.getElementById('toolPathInput').value.trim();
+        const category = document.getElementById('toolCategoryInput').value.trim() || 'Utilities';
+        const description = document.getElementById('toolDescInput').value.trim();
+        const tagsRaw = document.getElementById('toolTagsInput').value;
+        const tags = tagsRaw
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean);
+
+        if (!title || !url) return;
+
+        if (editingId) {
+          const idx = state.tools.findIndex((t) => t.id === editingId);
+          if (idx !== -1) {
+            state.tools[idx] = {
+              ...state.tools[idx],
+              title,
+              url,
+              category,
+              description,
+              tags,
+              icon: state.selectedIcon,
+              color: state.selectedColor,
+            };
+            delete state.tools[idx].path;
+            showToast(`Updated "${title}"`);
+          }
+        } else {
+          const slugId =
+            title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '') || `tool-${Date.now()}`;
+
+          state.tools.push({
+            id: `${slugId}-${Date.now().toString(36)}`,
+            title,
+            description,
+            category,
+            url,
+            icon: state.selectedIcon,
+            color: state.selectedColor,
+            tags,
+          });
+          showToast(`Added "${title}" to hub`);
+        }
+
+        persistLocalState();
+        resetToolFormToAddMode();
+        renderHeaderMeta();
+        renderCategoryPills();
+        renderToolsGrid();
+        renderManagedToolsList();
+      });
+
+      // Managed tools reorder / edit / remove
+      document.getElementById('managedToolsContainer').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-manage-action]');
+        if (!btn) return;
+        const action = btn.dataset.manageAction;
+
+        if (action === 'up' || action === 'down') {
+          const idx = Number(btn.dataset.index);
+          const targetIdx = action === 'up' ? idx - 1 : idx + 1;
+          if (targetIdx < 0 || targetIdx >= state.tools.length) return;
+          const temp = state.tools[idx];
+          state.tools[idx] = state.tools[targetIdx];
+          state.tools[targetIdx] = temp;
+          persistLocalState();
+          renderToolsGrid();
+          renderManagedToolsList();
+        } else if (action === 'edit') {
+          populateFormForEdit(btn.dataset.id);
+        } else if (action === 'delete') {
+          const id = btn.dataset.id;
+          const target = state.tools.find((t) => t.id === id);
+          state.tools = state.tools.filter((t) => t.id !== id);
+          if (document.getElementById('editingToolId').value === id) {
+            resetToolFormToAddMode();
+          }
+          persistLocalState();
+          renderHeaderMeta();
+          renderCategoryPills();
+          renderToolsGrid();
+          renderManagedToolsList();
+          if (target) showToast(`Removed "${target.title}"`);
+        }
+      });
+
+      // Export & Copy Source Code buttons inside modal
+      document.getElementById('downloadHtmlBtn').addEventListener('click', exportUpdatedIndexHtmlFile);
+      document.getElementById('copySourceBtn').addEventListener('click', () => {
+        const code = buildUpdatedHtmlSource();
+        copyTextToClipboard(code, 'Copied full updated index.html code to clipboard');
+      });
+    }
+
+    /* =====================================================================
+     * 9. INITIALIZATION
+     * ===================================================================== */
+    function initHub() {
+      generateHubTouchIcon();
+      syncThemeIcons();
+
+      // Load embedded defaults, then check if local browser customizations exist
+      let loadedCustom = false;
+      try {
+        const savedToolsRaw = localStorage.getItem(STORAGE_KEYS.TOOLS);
+        const savedMetaRaw = localStorage.getItem(STORAGE_KEYS.META);
+        if (savedToolsRaw) {
+          const parsedTools = JSON.parse(savedToolsRaw);
+          if (Array.isArray(parsedTools)) {
+            state.tools = parsedTools;
+            loadedCustom = true;
+          }
+        }
+        if (savedMetaRaw) {
+          const parsedMeta = JSON.parse(savedMetaRaw);
+          if (parsedMeta && typeof parsedMeta === 'object') {
+            state.meta = { ...HUB_META, ...parsedMeta };
+            loadedCustom = true;
+          }
+        }
+      } catch (e) {
+        // Fallback to embedded defaults
+      }
+
+      if (!loadedCustom) {
+        state.meta = { ...HUB_META };
+        state.tools = TOOLS.map((t) => ({ ...t }));
+      } else {
+        state.hasLocalOverrides = true;
+      }
+
+      bindEvents();
+      updateSyncBannerVisibility();
+      renderHeaderMeta();
+      renderCategoryPills();
+      renderToolsGrid();
+    }
+
+    window.addEventListener('DOMContentLoaded', initHub);
+  </script>
+</body>
+</html>
