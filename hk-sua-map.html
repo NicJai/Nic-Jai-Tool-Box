@@ -1,2412 +1,1178 @@
 <!DOCTYPE html>
-<html lang="zh-HK">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HK NOTAM-C Map</title>
 
-  <!-- iOS Safari 主畫面全螢幕 Web App 設定 -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="荔景出行" />
-  <meta name="theme-color" content="#007A3D" id="themeColorMeta" />
-  <title>荔景出行實時交通儀表板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- 動態生成 iOS 主畫面圖示 (Apple Touch Icon) 與瀏覽器 Favicon -->
-  <link id="appleTouchIconLink" rel="apple-touch-icon" sizes="180x180" href="" />
-  <link id="faviconLink" rel="icon" type="image/png" href="" />
-
-  <!-- 載入 Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
-          colors: {
-            'gmb-green': '#007A3D',
-            'gmb-roof': '#00A859',
-            'mtr-tcl': '#F38B00',
-            'mtr-twl': '#E2231A',
-          },
           fontFamily: {
-            sans: [
-              '-apple-system',
-              'BlinkMacSystemFont',
-              '"SF Pro Text"',
-              '"PingFang HK"',
-              '"Noto Sans TC"',
-              '"Inter"',
-              'sans-serif',
-            ],
-            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
         },
       },
     };
   </script>
 
-  <!-- 頁面首次繪製前套用深色 / 淺色主題，避免畫面閃爍 -->
-  <script>
-    (function initThemeEarly() {
-      try {
-        const saved = localStorage.getItem('lk_transit_v7_theme');
-        const prefersDark =
-          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = saved || (prefersDark ? 'dark' : 'light');
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {
-        // 忽略無痕模式或受限環境儲存錯誤
-      }
-    })();
-  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
   <style>
-    html {
-      -webkit-text-size-adjust: 100%;
-      scroll-behavior: smooth;
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #090d16;
     }
-    body {
-      overflow-x: hidden;
-      padding-bottom: env(safe-area-inset-bottom);
+
+    #hkMap {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background: #0b1120;
     }
-    .safe-top {
-      padding-top: env(safe-area-inset-top);
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: rgba(15, 23, 42, 0.96) !important;
+      color: #f1f5f9 !important;
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      border-radius: 0.75rem !important;
+      box-shadow: 0 16px 28px -6px rgba(0, 0, 0, 0.65) !important;
     }
-    .tabular-nums {
-      font-variant-numeric: tabular-nums;
+
+    .leaflet-popup-content {
+      margin: 12px 14px !important;
+      font-family: 'Inter', sans-serif !important;
+      min-width: 220px;
     }
-    @keyframes pulseDot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.45; transform: scale(0.85); }
+
+    .leaflet-popup-close-button {
+      color: #94a3b8 !important;
+      padding: 6px 8px !important;
     }
-    .live-dot {
-      animation: pulseDot 2s infinite ease-in-out;
+
+    .leaflet-control-layers,
+    .leaflet-control-zoom a {
+      background: rgba(15, 23, 42, 0.92) !important;
+      color: #e2e8f0 !important;
+      border-color: rgba(51, 65, 85, 0.8) !important;
     }
+
+    .leaflet-control-layers {
+      border-radius: 0.6rem !important;
+      font-family: 'Inter', sans-serif !important;
+      font-size: 12px !important;
+    }
+
+    .notam-tip {
+      background: rgba(15, 23, 42, 0.95) !important;
+      border: 1px solid rgba(96, 165, 250, 0.55) !important;
+      color: #dbeafe !important;
+      border-radius: 0.4rem !important;
+      padding: 2px 7px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 11px !important;
+    }
+
+    .thin-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .thin-scroll::-webkit-scrollbar-track { background: transparent; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.55); border-radius: 9999px; }
   </style>
 </head>
+<body class="text-slate-100 antialiased flex flex-col md:flex-row h-screen w-screen overflow-hidden select-none">
 
-<body class="bg-slate-100 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
-  <!-- ===================================================================== -->
-  <!-- 頂部導航列 (Sticky Header：香港時間、同步倒數環、Demo 與主題切換)    -->
-  <!-- ===================================================================== -->
-  <header class="sticky top-0 z-30 bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 safe-top">
-    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-      <!-- 左側品牌與宿舍標題 -->
-      <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-gmb-green to-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 6v12m8-12v12M4 10h16M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm1 14v2m12-2v2" />
-          </svg>
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-1.5">
-            <h1 class="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white truncate">
-              荔景出行實時交通
-            </h1>
-            <span id="demoPillBadge" class="hidden px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold shrink-0">
-              模擬預覽
-            </span>
-          </div>
-          <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
-            荔景紀律部隊宿舍 · 荔枝嶺路 18 號
-          </p>
-        </div>
+  <!-- Minimal Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none max-w-xs w-full px-3 md:px-0"></div>
+
+  <!-- Mobile Drawer Button -->
+  <button
+    type="button"
+    onclick="toggleMobileSidebar()"
+    class="md:hidden fixed bottom-12 right-4 z-[1050] bg-slate-900/95 border border-slate-700 text-slate-100 text-xs font-semibold px-3.5 py-2.5 rounded-full shadow-xl flex items-center gap-2"
+  >
+    <span>NOTAM-C</span>
+    <span id="mobileBadgeCount" class="font-mono text-blue-400">(0 / 0)</span>
+  </button>
+
+  <!-- LEFT MINIMALIST NOTAM SIDEBAR -->
+  <aside
+    id="sidebar"
+    class="fixed inset-y-0 left-0 z-[1040] w-full sm:w-[360px] md:w-[370px] md:static bg-slate-950 border-r border-slate-800/90 flex flex-col h-full transform -translate-x-full md:translate-x-0 transition-transform duration-200"
+  >
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-slate-800/90 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+        <h1 class="text-sm font-semibold tracking-tight text-white">HK NOTAM-C</h1>
+        <span id="notamRatio" class="font-mono text-xs text-blue-300">(0 / 0)</span>
       </div>
-
-      <!-- 右側香港實時鐘與刷新控制 -->
-      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <div class="text-right mr-0.5">
-          <div id="hkClockText" class="font-mono text-sm sm:text-base font-black text-slate-900 dark:text-white tabular-nums leading-none">
-            --:--:--
-          </div>
-          <div id="lastSyncText" class="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 tabular-nums">
-            載入中...
-          </div>
-        </div>
-
-        <!-- 15 秒自動同步倒數圓環按鈕 -->
-        <button
-          id="manualRefreshBtn"
-          type="button"
-          title="立即重新整理所有實時班次"
-          aria-label="立即重新整理"
-          class="relative w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition active:scale-95"
-        >
-          <svg class="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
-            <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" stroke-width="3" class="text-slate-200 dark:text-slate-700" />
-            <circle
-              id="refreshRingCircle"
-              cx="18"
-              cy="18"
-              r="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-dasharray="87.96"
-              stroke-dashoffset="0"
-              stroke-linecap="round"
-              class="text-gmb-green dark:text-emerald-400 transition-all duration-500"
-            />
-          </svg>
-          <span id="refreshCountdownNum" class="absolute text-[10px] font-mono font-extrabold text-slate-700 dark:text-slate-200 tabular-nums">
-            15
-          </span>
-        </button>
-
-        <!-- 深色 / 淺色主題切換 -->
-        <button
-          id="themeToggleBtn"
-          type="button"
-          title="切換深色或淺色模式"
-          aria-label="切換主題"
-          class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 transition active:scale-95"
-        >
-          <svg id="iconSun" class="w-5 h-5 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5" />
-            <line x1="12" y1="1" x2="12" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="23" />
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-            <line x1="1" y1="12" x2="3" y2="12" />
-            <line x1="21" y1="12" x2="23" y2="12" />
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-          </svg>
-          <svg id="iconMoon" class="w-5 h-5 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
+      <div class="flex items-center gap-2.5">
+        <span id="hktClock" class="text-xs font-mono text-slate-400">--:-- HKT</span>
+        <button type="button" onclick="toggleMobileSidebar(false)" class="md:hidden text-slate-400 hover:text-white p-1" aria-label="Close">
+          ✕
         </button>
       </div>
     </div>
-  </header>
 
-  <!-- ===================================================================== -->
-  <!-- 主內容區                                                              -->
-  <!-- ===================================================================== -->
-  <main class="flex-1 w-full max-w-3xl mx-auto px-4 py-4 space-y-4">
-    <!-- 離線提示橫幅 -->
-    <div id="offlineBanner" class="hidden rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 px-4 py-3 text-xs font-bold text-rose-800 dark:text-rose-200 flex items-center justify-between gap-2">
-      <span>⚠️ 偵測到裝置處於離線狀態，目前無法更新實時班次。</span>
-      <button type="button" onclick="window.location.reload()" class="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[11px] font-bold shrink-0">
-        重試
+    <!-- Filter Controls -->
+    <div class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/80 space-y-2 shrink-0">
+      <div class="flex items-center justify-between gap-2">
+        <div class="grid grid-cols-2 gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs flex-1">
+          <button
+            id="filterTodayBtn"
+            type="button"
+            onclick="setScopeFilter('today')"
+            class="py-1 rounded-md font-medium bg-slate-800 text-white transition-colors"
+          >
+            Active Today
+          </button>
+          <button
+            id="filterAllBtn"
+            type="button"
+            onclick="setScopeFilter('all')"
+            class="py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            All
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onclick="toggleManualNotamPaste()"
+          class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-blue-300 shrink-0"
+          title="Paste raw Series-C NOTAM text"
+        >
+          + Paste
+        </button>
+      </div>
+
+      <!-- Optional Manual NOTAM-C Paste Fallback -->
+      <div id="manualNotamBox" class="hidden space-y-1.5 pt-1">
+        <textarea
+          id="manualNotamInput"
+          rows="3"
+          placeholder="Paste Series-C NOTAM text from notam.ais.gov.hk..."
+          class="w-full bg-slate-900 border border-slate-800 focus:border-blue-500/70 rounded-lg p-2 text-[11px] font-mono text-slate-200 placeholder-slate-500 focus:outline-none resize-none select-text"
+        ></textarea>
+        <div class="flex justify-end gap-1.5">
+          <button type="button" onclick="toggleManualNotamPaste(false)" class="px-2 py-1 text-[11px] text-slate-400">Cancel</button>
+          <button type="button" onclick="handleManualNotamImport()" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium">Import</button>
+        </div>
+      </div>
+
+      <input
+        type="text"
+        id="searchInput"
+        oninput="renderSidebarList()"
+        placeholder="Filter NOTAM..."
+        class="w-full bg-slate-900/80 border border-slate-800 focus:border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none select-text"
+      />
+    </div>
+
+    <!-- Scrollable Minimalist List -->
+    <div id="listContainer" class="flex-1 overflow-y-auto thin-scroll p-3 space-y-2"></div>
+
+    <!-- Minimal Footer -->
+    <div class="px-3.5 py-2.5 border-t border-slate-800/90 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+      <span id="todayDateLabel" class="font-mono text-[10.5px] text-slate-400">Today HKT</span>
+      <span id="notamSyncStatus" class="font-mono text-[10px] text-slate-500 truncate max-w-[190px]">Ready</span>
+    </div>
+  </aside>
+
+  <!-- RIGHT MAP WORKSPACE -->
+  <main class="relative flex-1 h-full w-full overflow-hidden">
+    <!-- Minimal Floating Top-Left Action Pill -->
+    <div class="absolute top-3 left-3 z-[1000] flex items-center gap-1.5">
+      <button
+        type="button"
+        id="btnSyncNotamC"
+        onclick="fetchSeriesCNotams()"
+        class="bg-slate-950/92 hover:bg-slate-900 backdrop-blur-md border border-blue-500/45 text-blue-200 text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5 transition-colors"
+      >
+        <svg id="syncIcon" class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span id="syncLabel">Fetch NOTAM-C</span>
+      </button>
+
+      <button
+        type="button"
+        onclick="resetMapView()"
+        class="bg-slate-950/92 hover:bg-slate-900 backdrop-blur-md border border-slate-700/80 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg shadow-lg transition-colors"
+        title="Reset to Hong Kong overview"
+      >
+        HK
       </button>
     </div>
 
-    <!-- 天文台天氣資訊列 (HKO) -->
-    <section id="weatherSection" aria-label="香港天文台實時天氣" class="rounded-2xl bg-white dark:bg-[#1e293b] border border-slate-200/80 dark:border-slate-700/80 shadow-sm px-4 py-3">
-      <div id="weatherContent" class="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-        <span>正在讀取香港天文台葵青／青衣實時天氣...</span>
-      </div>
-    </section>
+    <!-- Leaflet Map -->
+    <div id="hkMap"></div>
 
-    <!-- 通勤模式切換與步行時間設定面板 -->
-    <section aria-label="通勤方向與步行時間" class="rounded-2xl bg-white dark:bg-[#1e293b] border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-3.5 space-y-3">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <!-- 三段式切換：自動 / 返工(落山) / 放工(上山) -->
-        <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/90 text-xs font-extrabold">
-          <button
-            id="modeBtnAuto"
-            type="button"
-            data-set-mode="auto"
-            class="py-2 px-2.5 rounded-lg transition text-center"
-          >
-            自動時段
-          </button>
-          <button
-            id="modeBtnDownhill"
-            type="button"
-            data-set-mode="downhill"
-            class="py-2 px-2.5 rounded-lg transition text-center"
-          >
-            返工 (落山)
-          </button>
-          <button
-            id="modeBtnUphill"
-            type="button"
-            data-set-mode="uphill"
-            class="py-2 px-2.5 rounded-lg transition text-center"
-          >
-            放工 (上山)
-          </button>
-        </div>
-
-        <!-- 步行需時調整器 -->
-        <div class="flex items-center justify-between sm:justify-end gap-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/70 rounded-xl px-3 py-1.5">
-          <span id="walkTimeLabel" class="text-xs font-bold text-slate-600 dark:text-slate-300">
-            屋企行落宿舍門口需時
-          </span>
-          <div class="flex items-center gap-1.5">
-            <button
-              id="walkMinusBtn"
-              type="button"
-              aria-label="減少步行時間"
-              class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-sm flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95"
-            >
-              −
-            </button>
-            <span id="walkTimeValue" class="font-mono text-sm font-black text-gmb-green dark:text-emerald-400 min-w-[3.2rem] text-center tabular-nums">
-              3 分鐘
-            </span>
-            <button
-              id="walkPlusBtn"
-              type="button"
-              aria-label="增加步行時間"
-              class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black text-sm flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95"
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 模式摘要說明 -->
-      <div class="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5 border-t border-slate-100 dark:border-slate-800">
-        <span id="modeSummaryText">自動偵測中：14:00 前為落山往荔景站，14:00 後為上山返宿舍</span>
-        <button
-          id="openAddRouteBtn"
-          type="button"
-          class="text-gmb-green dark:text-emerald-400 font-extrabold hover:underline shrink-0"
-        >
-          + 新增小巴線
-        </button>
-      </div>
-    </section>
-
-    <!-- =================================================================== -->
-    <!-- 專線小巴區塊 (GMB)                                                  -->
-    <!-- =================================================================== -->
-    <section aria-label="專線小巴實時到站" class="space-y-3">
-      <div class="flex items-end justify-between gap-2 px-0.5">
-        <div>
-          <h2 id="gmbSectionTitle" class="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-            宿舍門口專線小巴（落山往荔景站）
-          </h2>
-          <p id="gmbSectionSubtitle" class="text-[11px] text-slate-500 dark:text-slate-400">
-            已自動換算總站及沿途車程 · 直接顯示宿舍門口到站時間
-          </p>
-        </div>
-        <button
-          id="resetRoutesBtn"
-          type="button"
-          class="text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
-          title="重設為預設小巴路線"
-        >
-          重設路線
-        </button>
-      </div>
-
-      <!-- 小巴錯誤橫幅（若有） -->
-      <div id="gmbErrorBanner" class="hidden"></div>
-
-      <!-- 小巴卡片清單容器 -->
-      <div id="gmbCardsContainer" class="space-y-3">
-        <!-- 由 JS 動態渲染 -->
-      </div>
-    </section>
-
-    <!-- =================================================================== -->
-    <!-- 港鐵荔景站區塊 (MTR Lai King Station)                               -->
-    <!-- =================================================================== -->
-    <section aria-label="港鐵荔景站實時班次" class="space-y-3 pt-1">
-      <div class="flex items-center justify-between gap-2 px-0.5">
-        <div>
-          <h2 class="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <span>港鐵荔景站實時班次</span>
-            <span class="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
-              LAK
-            </span>
-          </h2>
-          <p class="text-[11px] text-slate-500 dark:text-slate-400">
-            東涌線（3/4 號月台）及 荃灣線（1/2 號月台）
-          </p>
-        </div>
-
-        <!-- 方向篩選切換：全部方向 / 只睇過海 -->
-        <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800 text-[11px] font-extrabold">
-          <button
-            id="mtrFilterAllBtn"
-            type="button"
-            data-mtr-filter="all"
-            class="px-2.5 py-1 rounded-lg transition"
-          >
-            全部方向
-          </button>
-          <button
-            id="mtrFilterCrossBtn"
-            type="button"
-            data-mtr-filter="cross_harbour"
-            class="px-2.5 py-1 rounded-lg transition"
-          >
-            只睇過海
-          </button>
-        </div>
-      </div>
-
-      <!-- 港鐵卡片清單容器 -->
-      <div id="mtrCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <!-- 由 JS 動態渲染 -->
-      </div>
-    </section>
+    <!-- Minimal Cursor Coordinate Readout -->
+    <div class="absolute bottom-3 left-3 z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 py-1 font-mono text-[11px] text-slate-300 flex items-center gap-2 pointer-events-none">
+      <span id="cursorDD">22.33500, 114.14000</span>
+      <span class="text-slate-600">·</span>
+      <span id="cursorUTM" class="text-blue-300">50Q KK 0565 7280</span>
+    </div>
   </main>
 
-  <!-- ===================================================================== -->
-  <!-- 頁尾：數據來源、連線診斷與模擬模式切換                                -->
-  <!-- ===================================================================== -->
-  <footer class="max-w-3xl w-full mx-auto px-4 py-6 mt-2 border-t border-slate-200/80 dark:border-slate-800 text-center space-y-2.5">
-    <div class="flex flex-wrap items-center justify-center gap-2">
-      <button
-        id="openDiagnosticsBtn"
-        type="button"
-        class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
-      >
-        🩺 連線診斷
-      </button>
-      <button
-        id="toggleDemoModeBtn"
-        type="button"
-        class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
-      >
-        🎭 模擬數據預覽 (Demo)
-      </button>
-    </div>
-    <p class="text-[11px] text-slate-400 dark:text-slate-500">
-      實時數據來源：香港運輸署（data.etagmb.gov.hk）、港鐵公司及香港天文台開放數據
-    </p>
-    <p id="envOriginLabel" class="text-[10px] font-mono text-slate-400 dark:text-slate-600"></p>
-  </footer>
-
-  <!-- ===================================================================== -->
-  <!-- 彈窗 1：切換車站 / 核對方向                                           -->
-  <!-- ===================================================================== -->
-  <div id="stopPickerModal" class="fixed inset-0 z-50 hidden bg-slate-950/65 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="w-full max-w-lg max-h-[85vh] bg-white dark:bg-[#1e293b] rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
-        <div>
-          <h3 id="stopModalTitle" class="text-base font-black text-slate-900 dark:text-white">切換車站</h3>
-          <p id="stopModalSubtitle" class="text-xs text-slate-500 dark:text-slate-400">點選上車站點（系統會自動換算至宿舍門口車程）</p>
-        </div>
-        <button id="closeStopModalBtn" type="button" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
-          ✕
-        </button>
-      </div>
-      <div id="stopModalList" class="p-4 overflow-y-auto space-y-2 flex-1">
-        <!-- 動態載入站點清單 -->
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================================================================== -->
-  <!-- 彈窗 2：新增專線小巴路線                                              -->
-  <!-- ===================================================================== -->
-  <div id="addRouteModal" class="fixed inset-0 z-50 hidden bg-slate-950/65 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="w-full max-w-md bg-white dark:bg-[#1e293b] rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl p-5 space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">新增專線小巴路線</h3>
-        <button id="closeAddRouteModalBtn" type="button" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold">
-          ✕
-        </button>
-      </div>
-      <form id="addRouteForm" class="space-y-3">
-        <div class="grid grid-cols-3 gap-2">
-          <div>
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">地區</label>
-            <select id="newRouteRegion" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold">
-              <option value="NT" selected>新界 (NT)</option>
-              <option value="KLN">九龍 (KLN)</option>
-              <option value="HKI">港島 (HKI)</option>
-            </select>
-          </div>
-          <div class="col-span-2">
-            <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">路線號碼 *</label>
-            <input id="newRouteCode" type="text" placeholder="例如：47M、411、313" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold uppercase" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">備註標籤（選填）</label>
-          <input id="newRouteTag" type="text" placeholder="例如：往葵芳 / 經祖堯" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm" />
-        </div>
-        <button type="submit" class="w-full py-3 rounded-xl bg-gmb-green hover:bg-emerald-700 text-white font-extrabold text-sm transition">
-          加入目前時段清單
-        </button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ===================================================================== -->
-  <!-- 彈窗 3：API 連線診斷面板                                              -->
-  <!-- ===================================================================== -->
-  <div id="diagnosticsModal" class="fixed inset-0 z-50 hidden bg-slate-950/65 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="w-full max-w-lg max-h-[85vh] bg-white dark:bg-[#1e293b] rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-        <div>
-          <h3 class="text-base font-black text-slate-900 dark:text-white">🩺 政府實時數據連線診斷</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">逐一測試小巴、港鐵及天文台 API 連線狀態</p>
-        </div>
-        <button id="closeDiagnosticsBtn" type="button" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold">
-          ✕
-        </button>
-      </div>
-      <div id="diagnosticsResults" class="p-4 overflow-y-auto space-y-2.5 flex-1 text-xs">
-        <p class="text-slate-500">點擊下方「立即執行測試」開始診斷...</p>
-      </div>
-      <div class="px-5 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between gap-2">
-        <button id="diagEnableDemoBtn" type="button" class="px-3 py-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-extrabold">
-          切換模擬預覽
-        </button>
-        <button id="runDiagnosticsBtn" type="button" class="px-4 py-2 rounded-xl bg-gmb-green text-white text-xs font-extrabold">
-          立即執行測試
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================================================================== -->
-  <!-- 主應用程式邏輯                                                        -->
-  <!-- ===================================================================== -->
   <script>
-    'use strict';
-
-    /* =====================================================================
-     * 1. 常數設定（採用 lk_transit_v7_ 自動校準宿舍門口到站時間）
-     * ===================================================================== */
-    const STORAGE_KEYS = {
-      COMMUTE_MODE: 'lk_transit_v7_commute_mode',     // 'auto' | 'downhill' | 'uphill'
-      GMB_DOWNHILL: 'lk_transit_v7_gmb_downhill',
-      GMB_UPHILL: 'lk_transit_v7_gmb_uphill',
-      WALK_DOWNHILL: 'lk_transit_v7_walk_downhill',
-      WALK_UPHILL: 'lk_transit_v7_walk_uphill',
-      MTR_FILTER: 'lk_transit_v7_mtr_filter',         // 'cross_harbour' | 'all' | null
-      THEME: 'lk_transit_v7_theme',
-      STATIC_CACHE: 'lk_transit_v7_static_cache',     // 24 小時 GMB 路線與站點快取
-    };
-
-    const API_BASE = {
-      GMB: 'https://data.etagmb.gov.hk',
-      MTR: 'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php',
-      HKO: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php',
-    };
-
-    const REFRESH_INTERVAL_SEC = 15;
-    const STATIC_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-    // 返工（落山往荔景站）與放工（荔景站上山返宿舍）預設專線小巴清單
-    const DEFAULT_ROUTES_BY_MODE = {
-      downhill: [
-        { id: 'NT-46M', region: 'NT', routeCode: '46M', tag: '經祖堯最快' },
-        { id: 'NT-90M', region: 'NT', routeCode: '90M', tag: '往美孚經荔景站' },
-        { id: 'NT-91A', region: 'NT', routeCode: '91A', tag: '往葵芳經荔景站' },
-      ],
-      uphill: [
-        { id: 'NT-47M', region: 'NT', routeCode: '47M', tag: '經祖堯最快上山' },
-        { id: 'NT-46M', region: 'NT', routeCode: '46M', tag: '經麗瑤上山' },
-        { id: 'NT-90M', region: 'NT', routeCode: '90M', tag: '往浩景臺' },
-        { id: 'NT-91A', region: 'NT', routeCode: '91A', tag: '往浩景臺' },
-      ],
-    };
-
-    // 荔景港鐵站站名配對關鍵字
-    const LAI_KING_STATION_KEYWORDS = ['荔景站', '荔景港鐵站', '荔景鐵路站', '賢麗苑'];
-
-    // 返工落山模式：按實際行車順序優先鎖定宿舍門口或緊鄰上游站點
-    const DOWNHILL_STOP_PRIORITY_GROUPS = [
-      ['紀律部隊宿舍', '荔枝嶺'],
-      ['瑪嘉烈醫院荔景大樓', '荔景大樓'],
-      ['浩景臺'],
-      ['翠瑤苑', '念祖街', '明愛'],
-      ['麗瑤', '樂瑤', '華瑤'],
+    /**
+     * ============================================================================
+     * 1. HONG KONG GAZETTEER & SEEDED SERIES-C NOTAMS
+     * ============================================================================
+     */
+    const HK_LANDMARKS = [
+      { names: ['harbour city', 'ocean terminal', 'canton road', '海港城'], lat: 22.2960, lng: 114.1683, radius: 250 },
+      { names: ['tsim sha tsui', 'tst', 'avenue of stars', '尖沙咀'], lat: 22.2948, lng: 114.1722, radius: 300 },
+      { names: ['west kowloon', 'wkcd', 'm+', 'xiqu', '西九'], lat: 22.3015, lng: 114.1565, radius: 350 },
+      { names: ['icc', 'elements', '九龍站'], lat: 22.3034, lng: 114.1602, radius: 250 },
+      { names: ['victoria harbour', '維港'], lat: 22.2915, lng: 114.1680, radius: 500 },
+      { names: ['central', 'ifc', 'ferry pier', '中環'], lat: 22.2855, lng: 114.1588, radius: 300 },
+      { names: ['the henderson', 'murray road', '美利道'], lat: 22.2803, lng: 114.1622, radius: 150 },
+      { names: ['admiralty', 'tamar', '金鐘'], lat: 22.2809, lng: 114.1656, radius: 250 },
+      { names: ['wan chai', 'hkcec', '灣仔', '會展'], lat: 22.2833, lng: 114.1731, radius: 300 },
+      { names: ['causeway bay', 'victoria park', '銅鑼灣'], lat: 22.2825, lng: 114.1885, radius: 300 },
+      { names: ['happy valley', '跑馬地'], lat: 22.2725, lng: 114.1823, radius: 300 },
+      { names: ['the peak', 'victoria peak', '山頂'], lat: 22.2759, lng: 114.1455, radius: 300 },
+      { names: ['kennedy town', '堅尼地城'], lat: 22.2830, lng: 114.1275, radius: 250 },
+      { names: ['cyberport', 'pok fu lam', '數碼港'], lat: 22.2618, lng: 114.1304, radius: 300 },
+      { names: ['aberdeen', 'ocean park', 'wong chuk hang', '香港仔', '海洋公園'], lat: 22.2467, lng: 114.1757, radius: 400 },
+      { names: ['repulse bay', 'deep water bay', '淺水灣'], lat: 22.2366, lng: 114.1972, radius: 350 },
+      { names: ['stanley', '赤柱'], lat: 22.2185, lng: 114.2128, radius: 350 },
+      { names: ['shek o', '石澳'], lat: 22.2307, lng: 114.2518, radius: 400 },
+      { names: ['north point', 'quarry bay', 'taikoo', '北角', '鰂魚涌'], lat: 22.2889, lng: 114.2116, radius: 300 },
+      { names: ['shau kei wan', 'sai wan ho', '筲箕灣'], lat: 22.2801, lng: 114.2292, radius: 300 },
+      { names: ['chai wan', 'siu sai wan', '柴灣'], lat: 22.2647, lng: 114.2371, radius: 350 },
+      { names: ['hung hom', 'whampoa', '紅磡'], lat: 22.3031, lng: 114.1826, radius: 300 },
+      { names: ['jordan', 'yau ma tei', '佐敦', '油麻地'], lat: 22.3082, lng: 114.1715, radius: 250 },
+      { names: ['mong kok', 'prince edward', '旺角'], lat: 22.3193, lng: 114.1694, radius: 250 },
+      { names: ['sham shui po', 'cheung sha wan', 'lai chi kok', '深水埗'], lat: 22.3307, lng: 114.1622, radius: 300 },
+      { names: ['stonecutters island', '昂船洲'], lat: 22.3189, lng: 114.1362, radius: 400 },
+      { names: ['kai tak', 'cruise terminal', '啟德'], lat: 22.3075, lng: 114.2125, radius: 450 },
+      { names: ['kowloon bay', 'kwun tong', '觀塘', '九龍灣'], lat: 22.3122, lng: 114.2251, radius: 300 },
+      { names: ['wong tai sin', 'diamond hill', '黃大仙'], lat: 22.3429, lng: 114.1932, radius: 350 },
+      { names: ['kowloon tong', '九龍塘'], lat: 22.3372, lng: 114.1762, radius: 300 },
+      { names: ['kwai chung', 'tsing yi', '葵涌', '青衣'], lat: 22.3456, lng: 114.1068, radius: 450 },
+      { names: ['tsuen wan', '荃灣'], lat: 22.3707, lng: 114.1135, radius: 350 },
+      { names: ['sham tseng', 'tsing ma', '深井', '青馬'], lat: 22.3667, lng: 114.0617, radius: 450 },
+      { names: ['tuen mun', 'gold coast', '屯門'], lat: 22.3916, lng: 113.9725, radius: 450 },
+      { names: ['yuen long', 'kam tin', '元朗', '錦田'], lat: 22.4445, lng: 114.0222, radius: 500 },
+      { names: ['tin shui wai', 'wetland park', 'lau fau shan', '天水圍', '流浮山'], lat: 22.4678, lng: 114.0046, radius: 500 },
+      { names: ['ha tsuen', 'hung shui kiu', 'deep bay', 'shenzhen bay', '廈村', '深圳灣'], lat: 22.4455, lng: 113.9861, radius: 500 },
+      { names: ['sheung shui', 'fanling', 'lok ma chau', '上水', '粉嶺'], lat: 22.5015, lng: 114.1277, radius: 500 },
+      { names: ['ta kwu ling', 'sha tau kok', '打鼓嶺', '沙頭角'], lat: 22.5364, lng: 114.1618, radius: 500 },
+      { names: ['san wai', 'tai ling', '新圍', '大嶺'], lat: 22.5170, lng: 114.1480, radius: 1200 },
+      { names: ['vhd5', 'd5', 'tsing shan', 'castle peak', '青山'], lat: 22.4167, lng: 113.9500, radius: 4500 },
+      { names: ['sai wan', 'sai ying pun', 'sheung wan', '西環', '西營盤'], lat: 22.2856, lng: 114.1408, radius: 400 },
+      { names: ['tai po', 'science park', 'pak shek kok', '大埔', '科學園'], lat: 22.4508, lng: 114.1642, radius: 450 },
+      { names: ['sha tin', 'fo tan', '沙田'], lat: 22.3814, lng: 114.1883, radius: 400 },
+      { names: ['ma on shan', 'wu kai sha', 'shap sze heung', '馬鞍山'], lat: 22.4244, lng: 114.2317, radius: 400 },
+      { names: ['tai mo shan', '大帽山'], lat: 22.4117, lng: 114.1233, radius: 500 },
+      { names: ['sai kung', '西貢'], lat: 22.3814, lng: 114.2705, radius: 500 },
+      { names: ['clear water bay', 'hkust', '清水灣'], lat: 22.3364, lng: 114.2655, radius: 400 },
+      { names: ['tseung kwan o', 'tko', 'lohas park', '將軍澳'], lat: 22.3072, lng: 114.2598, radius: 400 },
+      { names: ['tung chung', '東涌'], lat: 22.2891, lng: 113.9412, radius: 450 },
+      { names: ['disneyland', 'penny s bay', '迪士尼'], lat: 22.3130, lng: 114.0413, radius: 500 },
+      { names: ['discovery bay', '愉景灣'], lat: 22.2952, lng: 114.0148, radius: 400 },
+      { names: ['tai o', 'mui wo', '大澳', '梅窩'], lat: 22.2545, lng: 113.8622, radius: 450 },
+      { names: ['cheung chau', '長洲'], lat: 22.2081, lng: 114.0285, radius: 400 },
+      { names: ['lamma', '南丫島'], lat: 22.2265, lng: 114.1118, radius: 450 },
+      { names: ['peng chau', '坪洲'], lat: 22.2856, lng: 114.0411, radius: 300 }
     ];
 
-    // 放工上山模式：判斷站點位於荔景站之後、屬山上宿舍方向之關鍵字
-    const UPHILL_DEST_KEYWORDS = ['浩景臺', '紀律部隊宿舍', '荔枝嶺', '麗瑤', '祖堯', '敬祖路', '瑪嘉烈'];
-
-    // 港鐵終點站代碼對照表
-    const MTR_DEST_NAMES = {
-      HOK: '香港 (過海)',
-      TUC: '東涌',
-      TSY: '青衣',
-      SUN: '欣澳',
-      CEN: '中環 (過海)',
-      ADM: '金鐘 (過海)',
-      TST: '尖沙咀',
-      JOR: '佐敦',
-      YMT: '油麻地',
-      MOK: '旺角',
-      PRE: '太子',
-      SSP: '深水埗',
-      CSW: '長沙灣',
-      LCK: '荔枝角',
-      MEF: '美孚',
-      LAK: '荔景',
-      KWF: '葵芳',
-      KWH: '葵興',
-      TWH: '大窩口',
-      TSW: '荃灣',
-    };
-
-    // 天文台天氣圖示編號對照
-    const HKO_ICON_MAP = {
-      50: { emoji: '☀️', text: '陽光充沛' },
-      51: { emoji: '🌤️', text: '間有陽光' },
-      52: { emoji: '⛅', text: '短暫陽光' },
-      53: { emoji: '🌦️', text: '間有陽光及幾陣驟雨' },
-      54: { emoji: '🌦️', text: '短暫陽光有驟雨' },
-      60: { emoji: '☁️', text: '多雲' },
-      61: { emoji: '☁️', text: '密雲' },
-      62: { emoji: '🌧️', text: '微雨' },
-      63: { emoji: '🌧️', text: '有雨' },
-      64: { emoji: '⛈️', text: '大雨' },
-      65: { emoji: '⛈️', text: '雷暴' },
-      70: { emoji: '🌙', text: '天色良好' },
-      71: { emoji: '🌙', text: '天色良好' },
-      72: { emoji: '🌙', text: '天色良好' },
-      73: { emoji: '🌙', text: '天色良好' },
-      74: { emoji: '🌙', text: '天色良好' },
-      75: { emoji: '🌙', text: '天色良好' },
-      76: { emoji: '☁️', text: '大致多雲' },
-      77: { emoji: '🌤️', text: '天色大致良好' },
-      80: { emoji: '💨', text: '大風' },
-      81: { emoji: '🏜️', text: '乾燥' },
-      82: { emoji: '💧', text: '潮濕' },
-      83: { emoji: '🌫️', text: '有霧' },
-      84: { emoji: '🌫️', text: '薄霧' },
-      85: { emoji: '🌫️', text: '煙霞' },
-      90: { emoji: '🥵', text: '酷熱' },
-      91: { emoji: '🌡️', text: '天氣炎熱' },
-      92: { emoji: '🍃', text: '清涼' },
-      93: { emoji: '🥶', text: '寒冷' },
-    };
-
-    /* =====================================================================
-     * 2. 應用程式狀態 (State)
-     * ===================================================================== */
-    const state = {
-      commuteSetting: 'auto', // 'auto' | 'downhill' | 'uphill'
-      activeMode: 'downhill', // 'downhill' | 'uphill'
-      walkTimeByMode: {
-        downhill: 3,
-        uphill: 2,
+    // Seeded Series-C NOTAMs (live fetch replaces/merges from https://www.notam.ais.gov.hk/)
+    const SEED_SERIES_C = [
+      {
+        id: 'notam-C0495-26',
+        notamNo: 'C0495/26',
+        title: 'BVLOS UAS Ops — Shap Sze Heung, Sai Sa Rd',
+        geometryType: 'polygon',
+        lat: 22.4310,
+        lng: 114.2650,
+        coordinates: [
+          [22.43667, 114.27472], [22.42389, 114.27472], [22.42389, 114.27028],
+          [22.42778, 114.26750], [22.42556, 114.26361], [22.42556, 114.25306], [22.43667, 114.25306]
+        ],
+        upperLimit: '558FT AMSL',
+        validFromUtc: '2026-11-26T01:30:00Z',
+        validToUtc: '2026-11-26T09:00:00Z',
+        dailyWindowsUtc: [{ start: '01:30', end: '09:00' }],
+        dField: '',
+        schedule: 'NOV 26 0130-0900 UTC',
+        rawText: '(C0495/26 NOTAMN Q) VHHK/QWULW/IV/BO /W /000/006/2226N11416E002 A) VHHK B) 2611260130 C) 2611260900 E) UAS OPS (BEYOND VISUAL LINE OF SIGHT) WILL TAKE PLACE AT SHAP SZE HEUNG, SAI SA ROAD AREA (EAST OF MA ON SHAN), NEW TERRITORIES. F) SFC G) 558FT AMSL)'
       },
-      gmbRoutesByMode: {
-        downhill: [],
-        uphill: [],
+      {
+        id: 'notam-C0493-26',
+        notamNo: 'C0493/26',
+        title: 'BVLOS Cat C SUA — Deep Bay & Ha Tsuen',
+        geometryType: 'polyline',
+        lat: 22.4480,
+        lng: 113.9520,
+        coordinates: [
+          [22.44556, 113.98611], [22.45111, 113.97833], [22.45972, 113.97306],
+          [22.45528, 113.95861], [22.43889, 113.90528], [22.43083, 113.90167], [22.42722, 113.90889]
+        ],
+        upperLimit: '558FT AMSL',
+        validFromUtc: '2026-11-23T02:00:00Z',
+        validToUtc: '2026-12-31T09:00:00Z',
+        dailyWindowsUtc: [{ start: '02:00', end: '09:00' }],
+        dField: 'DLY 0200-0900',
+        schedule: 'DLY 0200-0900 UTC',
+        rawText: '(C0493/26 NOTAMN Q) VHHK/QWULW/IV/BO /W /000/006/2227N11400E003 A) VHHK B) 2611230200 C) 2612310900 D) DLY 0200-0900 E) UAS OPS (BEYOND VISUAL LINE OF SIGHT WITH CAT C SMALL UNMANNED AIRCRAFT) IN DEEP BAY AND HA TSUEN. F) SFC G) 558FT AMSL)'
       },
-      gmbEtaById: {},       // { [routeId]: { status: 'loading'|'ok'|'error', entries: [], errorMsg: '' } }
-      gmbErrorBanner: null,
-      mtrFilterOverride: null,
-      mtrData: {
-        status: 'loading',  // 'loading' | 'ok' | 'error'
-        TCL: null,
-        TWL: null,
-        errorMsg: '',
+      {
+        id: 'notam-C0450-26',
+        notamNo: 'C0450/26',
+        title: 'Firing Exer at VHD5 (Safety Alt 3000FT AMSL)',
+        geometryType: 'circle',
+        lat: 22.41667,
+        lng: 113.95000,
+        radius: 5556,
+        upperLimit: '2000FT AMSL',
+        validFromUtc: '2026-11-01T00:00:00Z',
+        validToUtc: '2026-11-30T13:00:00Z',
+        dailyWindowsUtc: [{ start: '00:00', end: '13:00' }],
+        dField: 'NOVEMBER 02-07 09-14 16-21 23-28 30 0000-1300',
+        schedule: 'NOVEMBER 02-07 09-14 16-21 23-28 30 0000-1300 UTC',
+        rawText: '(C0450/26 NOTAMN Q) VHHK/QRDCA/IV/BO /W /000/020/2225N11357E003 A) VHHK B) 2611010000 C) 2611301300 D) NOVEMBER 02-07 09-14 16-21 23-28 30 0000-1300 E) FIRING EXER AT VHD5 SAFETY ALT 3000FT AMSL AIP HONG KONG ENR5.1 REFERS ALL ACFT MUST REMAIN CLEAR OF THE AREA. F) SFC G) 2000FT AMSL)'
       },
-      weatherData: {
-        status: 'loading',
-        temp: null,
-        place: '',
-        humidity: null,
-        iconCode: null,
-        warnings: [],
-        rainfallMax: null,
-      },
-      countdown: REFRESH_INTERVAL_SEC,
-      demoMode: false,
-      activeStopPickerRouteId: null,
-    };
-
-    /* =====================================================================
-     * 3. 儲存、日期時間解析（完全兼容 iOS Safari）與工具函式
-     * ===================================================================== */
-    function readStorage(key, fallback) {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw !== null ? JSON.parse(raw) : fallback;
-      } catch (e) {
-        return fallback;
+      {
+        id: 'notam-C0449-26',
+        notamNo: 'C0449/26',
+        title: 'Small Arms Firing — San Wai / Tai Ling Range (KK060925)',
+        geometryType: 'circle',
+        lat: 22.51715,
+        lng: 114.14228,
+        radius: 1852,
+        upperLimit: '1300FT AMSL',
+        validFromUtc: '2026-11-01T00:00:00Z',
+        validToUtc: '2026-11-30T13:00:00Z',
+        dailyWindowsUtc: [{ start: '00:00', end: '13:00' }],
+        dField: 'NOVEMBER 02-07 09-14 16-21 23-28 30 0000-1300',
+        schedule: 'NOVEMBER 02-07 09-14 16-21 23-28 30 0000-1300 UTC',
+        rawText: '(C0449/26 NOTAMN Q) VHHK/QWMLW/IV/BO /W /000/013/2230N11409E001 A) VHHK B) 2611010000 C) 2611301300 D) NOVEMBER 02-07 09-14 16-21 23-28 30 0000-1300 E) FIRING OF SMALL ARMS AT SAN WAI / TAI LING RANGE (UTM GRID KK060925) ALL ACFT MUST REMAIN CLEAR OF THE AREA. F) SFC G) 1300FT AMSL)'
       }
-    }
-
-    function writeStorage(key, value) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch (e) {
-        // 忽略受限環境儲存錯誤
-      }
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+    ];
 
     /**
-     * 安全解析香港時間字串（解決 iOS Safari 無法解析 "YYYY-MM-DD HH:MM:SS" 的問題）
+     * ============================================================================
+     * 2. STATE & STORAGE
+     * ============================================================================
      */
-    function parseHkDateTime(rawStr) {
-      if (!rawStr) return null;
-      const str = String(rawStr).trim();
-      // 若格式為 "2026-11-25 15:53:00"（無 T 及時區），轉為 ISO "+08:00"
-      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(str)) {
-        const iso = str.replace(/\s+/, 'T') + '+08:00';
-        const d = new Date(iso);
-        return Number.isNaN(d.getTime()) ? null : d;
-      }
-      const d = new Date(str);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
+    const NOTAM_KEY = 'hk_notam_series_c_v5';
 
-    function formatDateToHkHHMM(dateObj) {
-      if (!dateObj || Number.isNaN(dateObj.getTime())) return '--:--';
+    let seriesCNotams = [];
+    let scopeFilter = 'today';
+    let isFetching = false;
+    let map = null;
+    let notamLayer = null;
+    const notamLayersById = {};
+
+    function loadState() {
       try {
-        return dateObj.toLocaleTimeString('en-GB', {
-          timeZone: 'Asia/Hong_Kong',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        });
-      } catch (e) {
-        const hh = String(dateObj.getHours()).padStart(2, '0');
-        const mm = String(dateObj.getMinutes()).padStart(2, '0');
-        return `${hh}:${mm}`;
-      }
-    }
-
-    function getHkHourNow() {
-      try {
-        const str = new Date().toLocaleTimeString('en-GB', {
-          timeZone: 'Asia/Hong_Kong',
-          hour: '2-digit',
-          hour12: false,
-        });
-        return parseInt(str, 10) || new Date().getHours();
-      } catch (e) {
-        return new Date().getHours();
-      }
-    }
-
-    function detectAutoCommuteMode() {
-      // 14:00 之前預設落山（返工），14:00 及之後預設上山（放工）
-      return getHkHourNow() < 14 ? 'downhill' : 'uphill';
-    }
-
-    function getEffectiveMtrFilter() {
-      if (state.mtrFilterOverride === 'cross_harbour' || state.mtrFilterOverride === 'all') {
-        return state.mtrFilterOverride;
-      }
-      // 返工時段預設只顯示過海方向（往香港／往中環），放工預設全部方向
-      return state.activeMode === 'downhill' ? 'cross_harbour' : 'all';
-    }
-
-    function getEnvContextLabel() {
-      const proto = window.location.protocol || 'unknown:';
-      const host = window.location.hostname || '(local file)';
-      return `${proto}//${host}`;
-    }
-
-    function sleep(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    /**
-     * 根據實際道路距離自動計算「宿舍門口（荔枝嶺路18號）」的精準到站時間補償（分鐘）
-     * - 紀律部隊宿舍 / 荔枝嶺：0 分鐘（正門位置）
-     * - 浩景臺總站 / 瑪嘉烈醫院荔景大樓：+1 分鐘（由總站開出落斜駛至宿舍門口約 45–60 秒）
-     * - 翠瑤苑 / 念祖街 / 明愛：-1 分鐘（已過宿舍落山約 1 分鐘）
-     * - 麗瑤 / 樂瑤 / 華瑤：-2 分鐘（已過宿舍落山約 2 分鐘）
-     */
-    function getDefaultLabelAndOffsetForStop(stopNameTc, mode) {
-      const name = String(stopNameTc || '');
-      if (mode === 'uphill') {
-        return {
-          customLabel: '荔景站上車點 (A1出口)',
-          offsetMins: 0,
-        };
-      }
-      if (/紀律部隊宿舍|荔枝嶺/.test(name)) {
-        return {
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: 0,
-        };
-      }
-      if (/浩景臺|瑪嘉烈醫院荔景大樓|荔景大樓/.test(name)) {
-        return {
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: 1,
-        };
-      }
-      if (/翠瑤苑|念祖街|明愛/.test(name)) {
-        return {
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: -1,
-        };
-      }
-      if (/麗瑤|樂瑤|華瑤/.test(name)) {
-        return {
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: -2,
-        };
-      }
-      return {
-        customLabel: '宿舍門口 (荔枝嶺路18號)',
-        offsetMins: 0,
-      };
-    }
-
-    /**
-     * 計算趕車狀態（將調整後等車時間與步行時間對比）
-     */
-    function evaluateCatchStatus(adjustedMins, walkMins) {
-      const margin = adjustedMins - walkMins;
-      if (margin < 0) {
-        return {
-          label: '趕唔切 · 等下一班',
-          cardClass: 'bg-rose-50/75 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/70',
-          numClass: 'text-rose-600 dark:text-rose-400',
-          badgeClass: 'bg-rose-100 dark:bg-rose-900/70 text-rose-800 dark:text-rose-200',
-        };
-      }
-      if (margin <= 2) {
-        return {
-          label: '啱啱好 · 即刻出門口',
-          cardClass: 'bg-emerald-50/85 dark:bg-emerald-950/35 border-emerald-300 dark:border-emerald-800/80',
-          numClass: 'text-emerald-700 dark:text-emerald-400',
-          badgeClass: 'bg-emerald-600 text-white',
-        };
-      }
-      return {
-        label: `仲有 ${margin} 分鐘鬆動`,
-        cardClass: 'bg-slate-50/90 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-700/80',
-        numClass: 'text-slate-900 dark:text-white',
-        badgeClass: 'bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200',
-      };
-    }
-
-    /* =====================================================================
-     * 4. 動態生成 iOS 主畫面圖示 (Apple Touch Icon)
-     * ===================================================================== */
-    function generateNativeAppIcon() {
-      try {
-        const size = 180;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const grad = ctx.createLinearGradient(0, 0, size, size);
-        grad.addColorStop(0, '#007A3D');
-        grad.addColorStop(1, '#065F46');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        // 綠頂小巴車頂色條
-        ctx.fillStyle = '#00A859';
-        ctx.fillRect(0, 0, size, 26);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 44px -apple-system, BlinkMacSystemFont, "PingFang HK", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('荔景', size / 2, 82);
-
-        ctx.fillStyle = '#A7F3D0';
-        ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "PingFang HK", sans-serif';
-        ctx.fillText('實時出行', size / 2, 132);
-
-        const pngUrl = canvas.toDataURL('image/png');
-        const appleLink = document.getElementById('appleTouchIconLink');
-        const favLink = document.getElementById('faviconLink');
-        if (appleLink) appleLink.href = pngUrl;
-        if (favLink) favLink.href = pngUrl;
-      } catch (e) {
-        // 忽略受限環境錯誤
-      }
-    }
-
-    /* =====================================================================
-     * 5. 智能網絡請求層（零自訂標頭簡單 GET + 多重 CORS 備援）
-     * ===================================================================== */
-    async function fetchWithTimeout(url, timeoutMs = 8000) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+        const saved = JSON.parse(localStorage.getItem(NOTAM_KEY) || 'null');
+        if (Array.isArray(saved) && saved.length > 0) {
+          seriesCNotams = saved;
+          return;
         }
-        return await res.json();
-      } finally {
-        clearTimeout(timer);
-      }
+      } catch {}
+      seriesCNotams = SEED_SERIES_C.map(n => ({ ...n }));
     }
 
-    async function fetchSmart(url, allowProxy = true) {
-      const t0 = performance.now();
-      try {
-        const data = await fetchWithTimeout(url, 8000);
-        return {
-          data,
-          via: 'direct',
-          ms: Math.round(performance.now() - t0),
-        };
-      } catch (directErr) {
-        if (!allowProxy) {
-          throw directErr;
-        }
-        // 備援通道 1：AllOrigins Raw
-        try {
-          const proxy1 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-          const data1 = await fetchWithTimeout(proxy1, 9000);
-          return {
-            data: data1,
-            via: 'allorigins',
-            ms: Math.round(performance.now() - t0),
-          };
-        } catch (proxy1Err) {
-          // 備援通道 2：CodeTabs Proxy
-          try {
-            const proxy2 = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-            const data2 = await fetchWithTimeout(proxy2, 9000);
-            return {
-              data: data2,
-              via: 'codetabs',
-              ms: Math.round(performance.now() - t0),
-            };
-          } catch (proxy2Err) {
-            const isFile = window.location.protocol === 'file:';
-            const reason = isFile
-              ? '偵測到你正以本機檔案 (file://) 直接打開，瀏覽器安全機制阻擋跨域 API 請求。請上傳至 GitHub Pages (https://) 使用，或開啟下方「模擬數據預覽」。'
-              : `無法連線至政府伺服器（${directErr.message || 'Failed to fetch'}）。請檢查流動數據／Wi-Fi 連線，或點擊下方「連線診斷」檢查。`;
-            throw new Error(reason);
+    function saveNotams() {
+      try { localStorage.setItem(NOTAM_KEY, JSON.stringify(seriesCNotams)); } catch {}
+    }
+
+    /**
+     * ============================================================================
+     * 3. WGS84 COORDINATES: UTMREF / MGRS & LANDMARK FALLBACK
+     * ============================================================================
+     */
+    const MGRS_BANDS = 'CDEFGHJKLMNPQRSTUVWX';
+    const MGRS_COLS = ['ABCDEFGH', 'JKLMNPQR', 'STUVWXYZ'];
+    const MGRS_ROWS = 'ABCDEFGHJKLMNPQRSTUV';
+
+    function latLngToUtm(lat, lng) {
+      const a = 6378137.0, f = 1 / 298.257223563;
+      const e2 = 2 * f - f * f, ep2 = e2 / (1 - e2), k0 = 0.9996;
+      const zone = Math.floor((lng + 180) / 6) + 1;
+      const lon0 = ((zone - 1) * 6 - 180 + 3) * Math.PI / 180;
+      const phi = lat * Math.PI / 180, lam = lng * Math.PI / 180;
+      const s = Math.sin(phi), c = Math.cos(phi), t = Math.tan(phi);
+      const N = a / Math.sqrt(1 - e2 * s * s);
+      const T = t * t, C = ep2 * c * c, A = c * (lam - lon0);
+      const M = a * (
+        (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * Math.pow(e2, 3) / 256) * phi
+        - (3 * e2 / 8 + 3 * e2 * e2 / 32 + 45 * Math.pow(e2, 3) / 1024) * Math.sin(2 * phi)
+        + (15 * e2 * e2 / 256 + 45 * Math.pow(e2, 3) / 1024) * Math.sin(4 * phi)
+        - (35 * Math.pow(e2, 3) / 3072) * Math.sin(6 * phi)
+      );
+      const easting = k0 * N * (A + (1 - T + C) * Math.pow(A, 3) / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * Math.pow(A, 5) / 120) + 500000;
+      let northing = k0 * (M + N * t * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * Math.pow(A, 4) / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * Math.pow(A, 6) / 720));
+      if (lat < 0) northing += 10000000;
+      const band = MGRS_BANDS[Math.min(19, Math.max(0, Math.floor((lat + 80) / 8)))];
+      return { zone, band, easting, northing };
+    }
+
+    function latLngToMgrs(lat, lng, precision = 4) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -80 || lat > 84) return '';
+      const { zone, band, easting, northing } = latLngToUtm(lat, lng);
+      const colSet = MGRS_COLS[(zone - 1) % 3];
+      const colIdx = Math.floor(easting / 100000) - 1;
+      if (colIdx < 0 || colIdx >= colSet.length) return '';
+      const rowOrigin = zone % 2 === 0 ? 5 : 0;
+      const rowIdx = (Math.floor(northing / 100000) + rowOrigin) % 20;
+      const div = Math.pow(10, 5 - precision);
+      const eStr = String(Math.floor((easting % 100000) / div)).padStart(precision, '0');
+      const nStr = String(Math.floor((northing % 100000) / div)).padStart(precision, '0');
+      return `${zone}${band} ${colSet[colIdx]}${MGRS_ROWS[rowIdx]} ${eStr} ${nStr}`;
+    }
+
+    function utmToLatLng(zone, easting, northing) {
+      const a = 6378137.0, f = 1 / 298.257223563;
+      const e2 = 2 * f - f * f, ep2 = e2 / (1 - e2), k0 = 0.9996;
+      const x = easting - 500000.0;
+      const y = northing;
+      const m = y / k0;
+      const mu = m / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * Math.pow(e2, 3) / 256));
+      const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+      const j1 = 3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32;
+      const j2 = 21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32;
+      const j3 = 151 * Math.pow(e1, 3) / 96;
+      const j4 = 1097 * Math.pow(e1, 4) / 512;
+      const fp = mu + j1 * Math.sin(2 * mu) + j2 * Math.sin(4 * mu) + j3 * Math.sin(6 * mu) + j4 * Math.sin(8 * mu);
+      const s = Math.sin(fp), c = Math.cos(fp), t = Math.tan(fp);
+      const C1 = ep2 * c * c, T1 = t * t;
+      const N1 = a / Math.sqrt(1 - e2 * s * s);
+      const R1 = a * (1 - e2) / Math.pow(1 - e2 * s * s, 1.5);
+      const D = x / (N1 * k0);
+      const latRad = fp - (N1 * t / R1) * (
+        D * D / 2
+        - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * Math.pow(D, 4) / 24
+        + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * Math.pow(D, 6) / 720
+      );
+      const lon0 = ((zone - 1) * 6 - 180 + 3) * Math.PI / 180;
+      const lngRad = lon0 + (
+        D
+        - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6
+        + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * Math.pow(D, 5) / 120
+      ) / c;
+      return [Number((latRad * 180 / Math.PI).toFixed(5)), Number((lngRad * 180 / Math.PI).toFixed(5))];
+    }
+
+    function mgrsToLatLng(refStr) {
+      if (!refStr) return null;
+      const cleaned = refStr.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const m = cleaned.match(/^(?:(\d{1,2})([C-X]))?([A-Z]{2})(\d{4,10})$/);
+      if (!m || m[4].length % 2 !== 0) return null;
+
+      const sq = m[3];
+      const digits = m[4];
+      // Default to Hong Kong UTM zone (49Q for GE/HE, 50Q for JK/JL/KK/KL)
+      const zone = m[1] ? parseInt(m[1], 10) : (['GE', 'HE'].includes(sq) ? 49 : 50);
+      const colSet = MGRS_COLS[(zone - 1) % 3];
+      const colIdx = colSet.indexOf(sq[0]);
+      const rowIdx = MGRS_ROWS.indexOf(sq[1]);
+      if (colIdx < 0 || rowIdx < 0) return null;
+
+      const half = digits.length / 2;
+      const scale = Math.pow(10, 5 - half);
+      const easting = (colIdx + 1) * 100000 + parseInt(digits.slice(0, half), 10) * scale + scale / 2;
+      const rowOrigin = zone % 2 === 0 ? 5 : 0;
+      const rowOffset = ((rowIdx - rowOrigin + 20) % 20) * 100000;
+      // Band Q (Hong Kong, ~22°N) lies in the 2,000,000m northing cycle
+      const northing = 2000000 + rowOffset + parseInt(digits.slice(half), 10) * scale + scale / 2;
+      const ll = utmToLatLng(zone, easting, northing);
+      if (ll[0] >= 21.5 && ll[0] <= 23.2 && ll[1] >= 113.2 && ll[1] <= 115.2) return ll;
+      return null;
+    }
+
+    function geocodeHK(text) {
+      if (!text) return null;
+      const norm = text.toLowerCase().replace(/['’]/g, ' ');
+      let best = null, score = 0;
+      for (const item of HK_LANDMARKS) {
+        for (const name of item.names) {
+          if (norm.includes(name) && name.length > score) {
+            score = name.length;
+            best = item;
           }
         }
       }
+      return best;
     }
 
-    /* =====================================================================
-     * 6. 24 小時小巴路線與站點快取
-     * ===================================================================== */
-    function getStaticCacheEntry(cacheKey) {
-      const cache = readStorage(STORAGE_KEYS.STATIC_CACHE, {});
-      const item = cache[cacheKey];
-      if (!item || !item.ts) return null;
-      if (Date.now() - item.ts > STATIC_CACHE_TTL_MS) return null;
-      return item.payload;
+    /**
+     * ============================================================================
+     * 4. TIME & ACTIVE-TODAY EVALUATION (HKT = UTC+8)
+     * ============================================================================
+     */
+    const MONTHS = {
+      JAN: 0, JANUARY: 0,
+      FEB: 1, FEBRUARY: 1,
+      MAR: 2, MARCH: 2,
+      APR: 3, APRIL: 3,
+      MAY: 4,
+      JUN: 5, JUNE: 5,
+      JUL: 6, JULY: 6,
+      AUG: 7, AUGUST: 7,
+      SEP: 8, SEPT: 8, SEPTEMBER: 8,
+      OCT: 9, OCTOBER: 9,
+      NOV: 10, NOVEMBER: 10,
+      DEC: 11, DECEMBER: 11
+    };
+    const WEEKDAYS = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+    const MONTH_REGEX_SRC = 'JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|SEPT|OCTOBER|NOVEMBER|DECEMBER|JAN|FEB|MAR|APR|JUN|JUL|AUG|SEP|OCT|NOV|DEC';
+
+    function getNowHKT() {
+      const now = new Date();
+      const hkt = new Date(now.getTime() + 8 * 3600000);
+      const y = hkt.getUTCFullYear();
+      const m = hkt.getUTCMonth();
+      const d = hkt.getUTCDate();
+      const hh = String(hkt.getUTCHours()).padStart(2, '0');
+      const mm = String(hkt.getUTCMinutes()).padStart(2, '0');
+      const startUtc = new Date(Date.UTC(y, m, d, 0, 0, 0) - 8 * 3600000);
+      const endUtc = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - 8 * 3600000);
+      const dateStr = `${String(d).padStart(2, '0')}/${String(m + 1).padStart(2, '0')}/${y}`;
+      return { y, m, d, hhmm: `${hh}:${mm}`, dateStr, startUtc, endUtc };
     }
 
-    function setStaticCacheEntry(cacheKey, payload) {
-      const cache = readStorage(STORAGE_KEYS.STATIC_CACHE, {});
-      cache[cacheKey] = { ts: Date.now(), payload };
-      writeStorage(STORAGE_KEYS.STATIC_CACHE, cache);
-    }
-
-    async function getGmbRouteVariants(region, routeCode) {
-      const key = `route_${region}_${routeCode}`;
-      const cached = getStaticCacheEntry(key);
-      if (cached) return cached;
-
-      const url = `${API_BASE.GMB}/route/${encodeURIComponent(region)}/${encodeURIComponent(routeCode)}`;
-      const res = await fetchSmart(url, true);
-      const variants = Array.isArray(res.data?.data) ? res.data.data : [];
-      if (variants.length > 0) {
-        setStaticCacheEntry(key, variants);
+    function toMinutes(t) {
+      const clean = (t || '').replace(/[^0-9:]/g, '');
+      if (clean.includes(':')) {
+        const [h, m] = clean.split(':').map(Number);
+        return (!isNaN(h) && !isNaN(m)) ? h * 60 + m : null;
       }
-      return variants;
+      if (clean.length === 4) return parseInt(clean.slice(0, 2), 10) * 60 + parseInt(clean.slice(2), 10);
+      return null;
     }
 
-    async function getGmbRouteStops(routeId, routeSeq) {
-      const key = `stops_${routeId}_${routeSeq}`;
-      const cached = getStaticCacheEntry(key);
-      if (cached) return cached;
-
-      const url = `${API_BASE.GMB}/route-stop/${routeId}/${routeSeq}`;
-      const res = await fetchSmart(url, true);
-      const stops = Array.isArray(res.data?.data?.route_stops)
-        ? res.data.data.route_stops
-        : Array.isArray(res.data?.data)
-        ? res.data.data
-        : [];
-      if (stops.length > 0) {
-        setStaticCacheEntry(key, stops);
+    function expandDayTokens(str) {
+      const days = new Set();
+      // Remove HHMM-HHMM time ranges before reading day numbers/ranges
+      const cleaned = str.replace(/\b\d{4}\s*-\s*\d{4}\b/g, ' ');
+      for (const rm of cleaned.matchAll(/\b(\d{1,2})\s*-\s*(\d{1,2})\b/g)) {
+        const s = parseInt(rm[1], 10), e = parseInt(rm[2], 10);
+        if (s >= 1 && e <= 31 && s <= e) {
+          for (let d = s; d <= e; d++) days.add(d);
+        }
       }
-      return stops;
+      const noRanges = cleaned.replace(/\b\d{1,2}\s*-\s*\d{1,2}\b/g, ' ');
+      for (const dm of noRanges.matchAll(/\b(\d{1,2})\b/g)) {
+        const d = parseInt(dm[1], 10);
+        if (d >= 1 && d <= 31) days.add(d);
+      }
+      return days;
     }
 
-    /* =====================================================================
-     * 7. 專線小巴自動配對車站（區分返工落山 / 放工上山）與 ETA 讀取
-     * ===================================================================== */
-    function findBestStopIndexForMode(stops, mode) {
-      if (!Array.isArray(stops) || stops.length === 0) return -1;
+    function extractUtcTimeWindows(str) {
+      const wins = [];
+      for (const m of (str || '').matchAll(/\b(\d{2})(\d{2})\s*-\s*(\d{2})(\d{2})\b/g)) {
+        wins.push({ sH: parseInt(m[1], 10), sM: parseInt(m[2], 10), eH: parseInt(m[3], 10), eM: parseInt(m[4], 10) });
+      }
+      return wins;
+    }
 
-      // 尋找「荔景站」在整條路線站序中的位置
-      const laiKingIdx = stops.findIndex((s) =>
-        LAI_KING_STATION_KEYWORDS.some((kw) => (s.name_tc || '').includes(kw))
+    function utcDayWindowsOverlapRange(year, month, day, windows, rangeStart, rangeEnd) {
+      const list = windows.length ? windows : [{ sH: 0, sM: 0, eH: 23, eM: 59 }];
+      for (const w of list) {
+        const wStart = new Date(Date.UTC(year, month, day, w.sH, w.sM, 0));
+        let wEnd = new Date(Date.UTC(year, month, day, w.eH, w.eM, 59, 999));
+        if (wEnd < wStart) wEnd = new Date(wEnd.getTime() + 86400000);
+        if (wStart <= rangeEnd && wEnd >= rangeStart) return true;
+      }
+      return false;
+    }
+
+    function matchesExplicitScheduleDay(notam, hkt) {
+      const rawD = (notam.dField || notam.schedule || '').toUpperCase().replace(/\bUTC\b/g, '').trim();
+      if (!rawD || /\bDLY\b|\bDAILY\b|\bH24\b/i.test(rawD)) return true;
+
+      // Normalize "25 NOV" or "24-26 NOV" to "NOV 25" / "NOV 24-26"
+      const normalized = rawD.replace(
+        new RegExp(`\\b(\\d{1,2}(?:\\s*-\\s*\\d{1,2})?)\\s+(${MONTH_REGEX_SRC})\\b`, 'g'),
+        '$2 $1'
       );
 
-      if (mode === 'uphill') {
-        // 放工模式：直接鎖定「荔景站」上山方向
-        if (laiKingIdx !== -1) {
-          // 若是雙向路線，確保荔景站之後的站點是往山上宿舍方向
-          const afterStops = stops.slice(laiKingIdx + 1);
-          const goesUphill = afterStops.some((s) =>
-            UPHILL_DEST_KEYWORDS.some((kw) => (s.name_tc || '').includes(kw))
-          );
-          if (goesUphill || laiKingIdx < stops.length - 1) {
-            return laiKingIdx;
-          }
-        }
-        return -1;
-      }
-
-      // 返工（落山）模式：只搜尋「荔景站之前」的站點（避免循環線配錯去回程上山站）
-      const searchLimit = laiKingIdx > 0 ? laiKingIdx : stops.length;
-      const downhillStops = stops.slice(0, searchLimit);
-
-      for (const group of DOWNHILL_STOP_PRIORITY_GROUPS) {
-        const idx = downhillStops.findIndex((s) =>
-          group.some((kw) => (s.name_tc || '').includes(kw))
-        );
-        if (idx !== -1) {
-          return idx;
-        }
-      }
-
-      // 若該方向完全沒有宿舍／荔枝嶺／浩景臺相關站名，代表可能是反方向
-      return -1;
-    }
-
-    async function resolveGmbRouteMetadata(routeObj, mode) {
-      const variants = await getGmbRouteVariants(routeObj.region, routeObj.routeCode);
-      if (!variants.length) {
-        throw new Error(`找不到專線小巴 ${routeObj.routeCode} 路線資料`);
-      }
-
-      // 優先選用正常班次（避開特別班次）
-      const sortedVariants = [...variants].sort((a, b) => {
-        const aSpec = (a.description_tc || '').includes('特別') ? 1 : 0;
-        const bSpec = (b.description_tc || '').includes('特別') ? 1 : 0;
-        return aSpec - bSpec;
-      });
-
-      let bestCandidate = null;
-
-      for (const variant of sortedVariants) {
-        const directions = Array.isArray(variant.directions) ? variant.directions : [];
-        for (const dir of directions) {
-          const stops = await getGmbRouteStops(variant.route_id, dir.route_seq);
-          const matchedIdx = findBestStopIndexForMode(stops, mode);
-          if (matchedIdx !== -1) {
-            const matchedStop = stops[matchedIdx];
-            const nextStop = stops[matchedIdx + 1] || null;
-            const autoCal = getDefaultLabelAndOffsetForStop(matchedStop.name_tc, mode);
-
-            bestCandidate = {
-              routeId: variant.route_id,
-              variantDesc: variant.description_tc || '正常班次',
-              routeSeq: dir.route_seq,
-              origTc: dir.orig_tc || '',
-              destTc: dir.dest_tc || '',
-              stopSeq: matchedStop.stop_seq,
-              stopId: matchedStop.stop_id,
-              stopNameTc: matchedStop.name_tc || '',
-              nextStopNameTc: nextStop ? nextStop.name_tc : '終點站',
-              customLabel: autoCal.customLabel,
-              offsetMins: autoCal.offsetMins,
-              unmatchedStop: false,
-            };
-            break;
-          }
-        }
-        if (bestCandidate) break;
-      }
-
-      // 若自動關鍵字未完全配對，退回第一個方向的第一站並提示使用者可手動「切換車站」
-      if (!bestCandidate) {
-        const fallbackVar = sortedVariants[0];
-        const fallbackDir = (fallbackVar.directions || [])[0];
-        if (!fallbackDir) {
-          throw new Error(`路線 ${routeObj.routeCode} 暫無方向資料`);
-        }
-        const stops = await getGmbRouteStops(fallbackVar.route_id, fallbackDir.route_seq);
-        const firstStop = stops[0];
-        if (!firstStop) {
-          throw new Error(`路線 ${routeObj.routeCode} 暫無車站資料`);
-        }
-        const nextStop = stops[1] || null;
-        bestCandidate = {
-          routeId: fallbackVar.route_id,
-          variantDesc: fallbackVar.description_tc || '正常班次',
-          routeSeq: fallbackDir.route_seq,
-          origTc: fallbackDir.orig_tc || '',
-          destTc: fallbackDir.dest_tc || '',
-          stopSeq: firstStop.stop_seq,
-          stopId: firstStop.stop_id,
-          stopNameTc: firstStop.name_tc || '',
-          nextStopNameTc: nextStop ? nextStop.name_tc : '終點站',
-          customLabel: mode === 'downhill' ? '宿舍門口 (荔枝嶺路18號)' : '荔景站上車點',
-          offsetMins: 0,
-          unmatchedStop: true,
-        };
-      }
-
-      Object.assign(routeObj, bestCandidate);
-      saveRoutesForMode(mode);
-    }
-
-    function saveRoutesForMode(mode) {
-      const key = mode === 'downhill' ? STORAGE_KEYS.GMB_DOWNHILL : STORAGE_KEYS.GMB_UPHILL;
-      writeStorage(key, state.gmbRoutesByMode[mode]);
-    }
-
-    async function fetchSingleGmbEta(routeObj, mode) {
-      try {
-        if (!routeObj.routeId || !routeObj.routeSeq || !routeObj.stopSeq) {
-          await resolveGmbRouteMetadata(routeObj, mode);
-        }
-
-        const etaUrl = `${API_BASE.GMB}/eta/route-stop/${routeObj.routeId}/${routeObj.routeSeq}/${routeObj.stopSeq}`;
-        const res = await fetchSmart(etaUrl, true);
-        const rawList = Array.isArray(res.data?.data?.eta) ? res.data.data.eta : [];
-
-        // 標準化每班車的時間戳與剩餘分鐘
-        const normalized = rawList.slice(0, 3).map((item, idx) => {
-          const rawTs = item.timestamp || item.eta || null;
-          const parsedDate = parseHkDateTime(rawTs);
-          return {
-            etaSeq: item.eta_seq || idx + 1,
-            timestamp: parsedDate ? parsedDate.toISOString() : null,
-            diff: typeof item.diff === 'number' ? item.diff : null,
-            remarks_tc: item.remarks_tc || '',
-            gps: item.gps !== false,
-          };
-        });
-
-        state.gmbEtaById[routeObj.id] = {
-          status: 'ok',
-          entries: normalized,
-          errorMsg: '',
-        };
-        state.gmbErrorBanner = null;
-      } catch (err) {
-        state.gmbEtaById[routeObj.id] = {
-          status: 'error',
-          entries: [],
-          errorMsg: err.message || '無法讀取小巴班次',
-        };
-        state.gmbErrorBanner = err.message || '無法讀取小巴班次';
-      }
-      renderGmbSection();
-    }
-
-    async function fetchAllGmbForMode(mode) {
-      const routes = state.gmbRoutesByMode[mode] || [];
-      for (let i = 0; i < routes.length; i += 1) {
-        await fetchSingleGmbEta(routes[i], mode);
-        if (i < routes.length - 1) {
-          await sleep(120); // 120ms 錯峰請求避免被政府 API 限流
-        }
-      }
-    }
-
-    /* =====================================================================
-     * 8. 港鐵荔景站實時班次 (TCL 東涌線 & TWL 荃灣線)
-     * ===================================================================== */
-    async function fetchMtrSchedule() {
-      try {
-        const [tclRes, twlRes] = await Promise.all([
-          fetchSmart(`${API_BASE.MTR}?line=TCL&sta=LAK&lang=TC`, true),
-          fetchSmart(`${API_BASE.MTR}?line=TWL&sta=LAK&lang=TC`, true),
-        ]);
-
-        state.mtrData = {
-          status: 'ok',
-          TCL: tclRes.data?.data?.['TCL-LAK'] || null,
-          TWL: twlRes.data?.data?.['TWL-LAK'] || null,
-          errorMsg: '',
-        };
-      } catch (err) {
-        state.mtrData = {
-          status: 'error',
-          TCL: null,
-          TWL: null,
-          errorMsg: err.message || '無法連線至港鐵實時系統',
-        };
-      }
-      renderMtrSection();
-    }
-
-    /* =====================================================================
-     * 9. 香港天文台實時天氣 (HKO rhrread)
-     * ===================================================================== */
-    async function fetchHkoWeather() {
-      try {
-        const res = await fetchSmart(`${API_BASE.HKO}?dataType=rhrread&lang=tc`, true);
-        const d = res.data || {};
-        const tempList = Array.isArray(d.temperature?.data) ? d.temperature.data : [];
-
-        // 優先配對最接近荔景的氣溫站：青衣 > 荃灣城門谷 > 京士柏 > 香港天文台
-        const preferredPlaces = ['青衣', '荃灣城門谷', '荃灣可觀', '京士柏', '香港天文台'];
-        let chosenTemp = null;
-        for (const p of preferredPlaces) {
-          const found = tempList.find((t) => (t.place || '').includes(p));
-          if (found && typeof found.value === 'number') {
-            chosenTemp = found;
-            break;
-          }
-        }
-        if (!chosenTemp && tempList.length > 0) {
-          chosenTemp = tempList[0];
-        }
-
-        const humVal = Array.isArray(d.humidity?.data) && d.humidity.data[0]
-          ? d.humidity.data[0].value
-          : null;
-        const iconCode = Array.isArray(d.icon) && d.icon.length > 0 ? d.icon[0] : null;
-        const warnings = Array.isArray(d.warningMessage)
-          ? d.warningMessage.filter(Boolean)
-          : typeof d.warningMessage === 'string' && d.warningMessage.trim()
-          ? [d.warningMessage.trim()]
-          : [];
-
-        const rainList = Array.isArray(d.rainfall?.data) ? d.rainfall.data : [];
-        const kwaiTsingRain = rainList.find((r) => (r.place || '').includes('葵青'));
-
-        state.weatherData = {
-          status: 'ok',
-          temp: chosenTemp ? chosenTemp.value : null,
-          place: chosenTemp ? chosenTemp.place : '葵青',
-          humidity: humVal,
-          iconCode,
-          warnings,
-          rainfallMax: kwaiTsingRain ? kwaiTsingRain.max : null,
-        };
-      } catch (err) {
-        state.weatherData = {
-          status: 'error',
-          temp: null,
-          place: '',
-          humidity: null,
-          iconCode: null,
-          warnings: [],
-          rainfallMax: null,
-        };
-      }
-      renderWeatherBar();
-    }
-
-    /* =====================================================================
-     * 10. 模擬數據預覽 (Demo Mode)
-     * ===================================================================== */
-    function loadDemoData() {
-      const now = Date.now();
-      const mkEta = (minsArr, remarksArr = []) =>
-        minsArr.map((m, idx) => ({
-          etaSeq: idx + 1,
-          timestamp: new Date(now + m * 60000).toISOString(),
-          diff: m,
-          remarks_tc: remarksArr[idx] || '',
-          gps: !(remarksArr[idx] || '').includes('預定'),
-        }));
-
-      state.gmbRoutesByMode.downhill = [
-        {
-          id: 'NT-46M',
-          region: 'NT',
-          routeCode: '46M',
-          tag: '經祖堯最快',
-          routeId: 2004601,
-          variantDesc: '正常班次',
-          routeSeq: 1,
-          origTc: '浩景臺',
-          destTc: '荔景站(循環線)',
-          stopSeq: 3,
-          stopId: 1001,
-          stopNameTc: '荔枝嶺路, 荔景紀律部隊宿舍外',
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: 0,
-          nextStopNameTc: '祖堯邨啟謙樓',
-          unmatchedStop: false,
-        },
-        {
-          id: 'NT-90M',
-          region: 'NT',
-          routeCode: '90M',
-          tag: '往美孚經荔景站',
-          routeId: 2009001,
-          variantDesc: '正常班次',
-          routeSeq: 1,
-          origTc: '浩景臺',
-          destTc: '美孚站',
-          stopSeq: 3,
-          stopId: 1002,
-          stopNameTc: '荔枝嶺路, 荔景紀律部隊宿舍外',
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: 0,
-          nextStopNameTc: '翠瑤苑',
-          unmatchedStop: false,
-        },
-        {
-          id: 'NT-91A',
-          region: 'NT',
-          routeCode: '91A',
-          tag: '往葵芳經荔景站',
-          routeId: 2009101,
-          variantDesc: '正常班次',
-          routeSeq: 1,
-          origTc: '浩景臺',
-          destTc: '葵芳站',
-          stopSeq: 3,
-          stopId: 1003,
-          stopNameTc: '荔枝嶺路, 荔景紀律部隊宿舍外',
-          customLabel: '宿舍門口 (荔枝嶺路18號)',
-          offsetMins: 0,
-          nextStopNameTc: '翠瑤苑',
-          unmatchedStop: false,
-        },
+      // Candidate UTC calendar dates that intersect today HKT (prev UTC day 16:00-23:59 + curr UTC day 00:00-15:59)
+      const prevUtc = new Date(Date.UTC(hkt.y, hkt.m, hkt.d - 1));
+      const currUtc = new Date(Date.UTC(hkt.y, hkt.m, hkt.d));
+      const candidates = [
+        { y: prevUtc.getUTCFullYear(), m: prevUtc.getUTCMonth(), d: prevUtc.getUTCDate(), dow: prevUtc.getUTCDay() },
+        { y: currUtc.getUTCFullYear(), m: currUtc.getUTCMonth(), d: currUtc.getUTCDate(), dow: currUtc.getUTCDay() }
       ];
 
-      state.gmbRoutesByMode.uphill = [
-        {
-          id: 'NT-47M',
-          region: 'NT',
-          routeCode: '47M',
-          tag: '經祖堯最快上山',
-          routeId: 2004701,
-          variantDesc: '正常班次',
-          routeSeq: 1,
-          origTc: '荔景站',
-          destTc: '華景山莊',
-          stopSeq: 1,
-          stopId: 2001,
-          stopNameTc: '荔景站(A1出口)',
-          customLabel: '荔景站上車點 (A1出口)',
-          offsetMins: 0,
-          nextStopNameTc: '祖堯邨啟謙樓',
-          unmatchedStop: false,
-        },
-        {
-          id: 'NT-46M',
-          region: 'NT',
-          routeCode: '46M',
-          tag: '經麗瑤上山',
-          routeId: 2004601,
-          variantDesc: '正常班次',
-          routeSeq: 1,
-          origTc: '荔景站',
-          destTc: '浩景臺',
-          stopSeq: 12,
-          stopId: 2002,
-          stopNameTc: '荔景站(A1出口)',
-          customLabel: '荔景站上車點 (A1出口)',
-          offsetMins: 0,
-          nextStopNameTc: '麗瑤邨榮瑤樓',
-          unmatchedStop: false,
-        },
-      ];
-
-      state.gmbEtaById = {
-        'NT-46M': { status: 'ok', entries: mkEta([4, 11, 19], ['', '', '預定班次']), errorMsg: '' },
-        'NT-90M': { status: 'ok', entries: mkEta([2, 14, 26], ['', '', '']), errorMsg: '' },
-        'NT-91A': { status: 'ok', entries: mkEta([7, 17, 27], ['', '預定班次', '預定班次']), errorMsg: '' },
-        'NT-47M': { status: 'ok', entries: mkEta([3, 10, 18], ['', '', '']), errorMsg: '' },
-      };
-      state.gmbErrorBanner = null;
-
-      const mkMtr = (dest, plat, mins) => ({
-        dest,
-        plat,
-        time: new Date(now + mins * 60000).toISOString(),
-        ttnt: String(mins),
-        valid: 'Y',
-      });
-
-      state.mtrData = {
-        status: 'ok',
-        TCL: {
-          DOWN: [mkMtr('HOK', '4', 2), mkMtr('HOK', '4', 8)],
-          UP: [mkMtr('TUC', '3', 3), mkMtr('TSY', '3', 7)],
-        },
-        TWL: {
-          DOWN: [mkMtr('CEN', '2', 1), mkMtr('CEN', '2', 5)],
-          UP: [mkMtr('TSW', '1', 4), mkMtr('TSW', '1', 8)],
-        },
-        errorMsg: '',
-      };
-
-      state.weatherData = {
-        status: 'ok',
-        temp: 23,
-        place: '青衣',
-        humidity: 74,
-        iconCode: 51,
-        warnings: [],
-        rainfallMax: 0,
-      };
-
-      const syncEl = document.getElementById('lastSyncText');
-      if (syncEl) syncEl.textContent = '模擬模式中';
-
-      renderModeHeaderAndControls();
-      renderGmbSection();
-      renderMtrSection();
-      renderWeatherBar();
-    }
-
-    /* =====================================================================
-     * 11. 渲染函式 (時鐘、模式列、小巴卡片、港鐵卡片、天氣列)
-     * ===================================================================== */
-    function updateHkClock() {
-      const clockEl = document.getElementById('hkClockText');
-      if (!clockEl) return;
-      try {
-        clockEl.textContent = new Date().toLocaleTimeString('en-GB', {
-          timeZone: 'Asia/Hong_Kong',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-        });
-      } catch (e) {
-        const d = new Date();
-        clockEl.textContent = d.toTimeString().slice(0, 8);
-      }
-    }
-
-    function updateCountdownVisual() {
-      const numEl = document.getElementById('refreshCountdownNum');
-      const ringEl = document.getElementById('refreshRingCircle');
-      const val = Math.max(0, state.countdown);
-      if (numEl) numEl.textContent = String(val);
-      if (ringEl) {
-        const circumference = 87.96;
-        const offset = circumference * (1 - val / REFRESH_INTERVAL_SEC);
-        ringEl.setAttribute('stroke-dashoffset', offset.toFixed(2));
-      }
-    }
-
-    function updateOfflineBanner() {
-      const banner = document.getElementById('offlineBanner');
-      if (!banner) return;
-      const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-      banner.classList.toggle('hidden', !isOffline);
-    }
-
-    function renderModeHeaderAndControls() {
-      const effectiveMode =
-        state.commuteSetting === 'auto' ? detectAutoCommuteMode() : state.commuteSetting;
-      state.activeMode = effectiveMode;
-
-      // 更新模式三段按鈕樣式
-      const btnMap = {
-        auto: document.getElementById('modeBtnAuto'),
-        downhill: document.getElementById('modeBtnDownhill'),
-        uphill: document.getElementById('modeBtnUphill'),
-      };
-      Object.entries(btnMap).forEach(([key, btn]) => {
-        if (!btn) return;
-        const isActive = state.commuteSetting === key;
-        btn.className = isActive
-          ? 'py-2 px-2.5 rounded-lg transition text-center bg-white dark:bg-slate-900 text-gmb-green dark:text-emerald-400 shadow-sm'
-          : 'py-2 px-2.5 rounded-lg transition text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
-      });
-
-      // 更新步行時間顯示
-      const walkMins = state.walkTimeByMode[effectiveMode] ?? 3;
-      const walkValEl = document.getElementById('walkTimeValue');
-      const walkLabelEl = document.getElementById('walkTimeLabel');
-      if (walkValEl) walkValEl.textContent = `${walkMins} 分鐘`;
-
-      // 更新小巴區塊標題與模式說明
-      const titleEl = document.getElementById('gmbSectionTitle');
-      const subEl = document.getElementById('gmbSectionSubtitle');
-      const summaryEl = document.getElementById('modeSummaryText');
-
-      if (effectiveMode === 'downhill') {
-        if (titleEl) titleEl.textContent = '宿舍門口專線小巴（落山往荔景站）';
-        if (subEl) subEl.textContent = '已自動換算總站及沿途車程 · 直接顯示宿舍門口到站時間';
-        if (walkLabelEl) walkLabelEl.textContent = '屋企行落宿舍門口需時';
-        if (summaryEl) {
-          summaryEl.textContent =
-            state.commuteSetting === 'auto'
-              ? '自動時段（14:00前）：落山往荔景站'
-              : '手動鎖定：落山往荔景站';
-        }
-      } else {
-        if (titleEl) titleEl.textContent = '荔景站專線小巴（上山返宿舍）';
-        if (subEl) subEl.textContent = '已鎖定荔景站上車點 · 顯示下一站核對方向';
-        if (walkLabelEl) walkLabelEl.textContent = '港鐵月台行去小巴站需時';
-        if (summaryEl) {
-          summaryEl.textContent =
-            state.commuteSetting === 'auto'
-              ? '自動時段（14:00後）：荔景站上山返宿舍'
-              : '手動鎖定：荔景站上山返宿舍';
-        }
-      }
-
-      // 更新港鐵篩選按鈕狀態
-      const effectiveFilter = getEffectiveMtrFilter();
-      const allBtn = document.getElementById('mtrFilterAllBtn');
-      const crossBtn = document.getElementById('mtrFilterCrossBtn');
-      if (allBtn && crossBtn) {
-        allBtn.className =
-          effectiveFilter === 'all'
-            ? 'px-2.5 py-1 rounded-lg transition bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-            : 'px-2.5 py-1 rounded-lg transition text-slate-500 dark:text-slate-400';
-        crossBtn.className =
-          effectiveFilter === 'cross_harbour'
-            ? 'px-2.5 py-1 rounded-lg transition bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-            : 'px-2.5 py-1 rounded-lg transition text-slate-500 dark:text-slate-400';
-      }
-
-      // 更新 Demo 徽章
-      const demoPill = document.getElementById('demoPillBadge');
-      const demoFooterBtn = document.getElementById('toggleDemoModeBtn');
-      if (demoPill) demoPill.classList.toggle('hidden', !state.demoMode);
-      if (demoFooterBtn) {
-        demoFooterBtn.textContent = state.demoMode
-          ? '🔴 關閉模擬預覽（切回實時）'
-          : '🎭 模擬數據預覽 (Demo)';
-      }
-    }
-
-    function renderGmbSection() {
-      const container = document.getElementById('gmbCardsContainer');
-      const errorBanner = document.getElementById('gmbErrorBanner');
-      if (!container) return;
-
-      const mode = state.activeMode;
-      const routes = state.gmbRoutesByMode[mode] || [];
-      const walkMins = state.walkTimeByMode[mode] ?? 3;
-
-      if (errorBanner) {
-        if (state.gmbErrorBanner && !state.demoMode) {
-          errorBanner.className =
-            'rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 p-3.5 text-xs text-amber-900 dark:text-amber-200 space-y-2';
-          errorBanner.innerHTML = `
-            <div class="font-extrabold">⚠️ 讀取小巴實時數據異常</div>
-            <p class="leading-relaxed">${escapeHtml(state.gmbErrorBanner)}</p>
-            <div class="flex flex-wrap gap-2 pt-1">
-              <button type="button" data-action="retry-now" class="px-3 py-1.5 rounded-xl bg-gmb-green text-white font-bold">立即重試</button>
-              <button type="button" data-action="open-diag" class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 font-bold">連線診斷</button>
-              <button type="button" data-action="enable-demo" class="px-3 py-1.5 rounded-xl bg-amber-200/80 dark:bg-amber-900/70 font-bold">開啟模擬預覽</button>
-            </div>
-          `;
-        } else {
-          errorBanner.className = 'hidden';
-          errorBanner.innerHTML = '';
-        }
-      }
-
-      if (routes.length === 0) {
-        container.innerHTML = `
-          <div class="rounded-2xl bg-white dark:bg-[#1e293b] border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center space-y-2">
-            <p class="text-sm font-bold text-slate-600 dark:text-slate-300">目前時段尚未設定小巴路線</p>
-            <button type="button" data-action="reset-routes" class="px-3.5 py-2 rounded-xl bg-gmb-green text-white text-xs font-extrabold">
-              還原預設小巴路線
-            </button>
-          </div>
-        `;
-        return;
-      }
-
-      const nowMs = Date.now();
-
-      container.innerHTML = routes
-        .map((route) => {
-          const etaRecord = state.gmbEtaById[route.id] || { status: 'loading', entries: [], errorMsg: '' };
-          const offsetMins = typeof route.offsetMins === 'number' ? route.offsetMins : 0;
-          const customLabel =
-            route.customLabel ||
-            (mode === 'downhill' ? '宿舍門口 (荔枝嶺路18號)' : '荔景站上車點 (A1出口)');
-
-          const directionText =
-            route.origTc && route.destTc
-              ? `${escapeHtml(route.origTc)} → ${escapeHtml(route.destTc)}`
-              : '正在確認路線方向...';
-
-          const routeTagHtml = route.tag
-            ? `<span class="px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/70 text-gmb-green dark:text-emerald-300 text-[10px] font-extrabold">${escapeHtml(route.tag)}</span>`
-            : '';
-
-          const isSpecialVariant = (route.variantDesc || '').includes('特別');
-          const variantPillHtml = isSpecialVariant
-            ? `<span class="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 text-[10px] font-bold shrink-0">特別班次</span>`
-            : '';
-
-          const stopInfoHtml = route.stopNameTc
-            ? `
-              <div class="mt-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/75 border border-slate-200/70 dark:border-slate-700/70 px-3 py-2 flex flex-wrap items-center justify-between gap-1.5">
-                <div class="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
-                  <span class="shrink-0" aria-hidden="true">📍</span>
-                  <span>${escapeHtml(customLabel)}</span>
-                </div>
-                <div class="flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  <span class="text-gmb-green dark:text-emerald-400 font-bold shrink-0">下一站 →</span>
-                  <span class="truncate max-w-[160px] sm:max-w-[220px]">${escapeHtml(route.nextStopNameTc || '終點站')}</span>
-                </div>
-              </div>
-            `
-            : `
-              <div class="mt-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-xs text-slate-400 animate-pulse">
-                正在精準校準宿舍門口到站時間...
-              </div>
-            `;
-
-          const unmatchedWarningHtml = route.unmatchedStop
-            ? `<div class="mt-2 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/70 rounded-xl px-3 py-1.5">⚠️ 此路線未自動找到預設站名，請按右上角「切換車站」手動選擇。</div>`
-            : '';
-
-          let etaBodyHtml = '';
-          if (etaRecord.status === 'loading') {
-            etaBodyHtml = `
-              <div class="mt-3 grid grid-cols-3 gap-2">
-                <div class="h-24 rounded-xl bg-slate-100 dark:bg-slate-800/70 animate-pulse"></div>
-                <div class="h-24 rounded-xl bg-slate-100 dark:bg-slate-800/70 animate-pulse"></div>
-                <div class="h-24 rounded-xl bg-slate-100 dark:bg-slate-800/70 animate-pulse"></div>
-              </div>
-            `;
-          } else if (etaRecord.status === 'error') {
-            etaBodyHtml = `
-              <div class="mt-3 rounded-xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 px-3 py-2.5 text-xs text-rose-700 dark:text-rose-300 font-medium">
-                暫時未能讀取班次：${escapeHtml(etaRecord.errorMsg)}
-              </div>
-            `;
-          } else if (!etaRecord.entries || etaRecord.entries.length === 0) {
-            etaBodyHtml = `
-              <div class="mt-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/70 px-3 py-3 text-center text-xs font-bold text-slate-500 dark:text-slate-400">
-                暫無即將開出或到站班次（可能已過尾班車或總站待發）
-              </div>
-            `;
-          } else {
-            const itemsHtml = etaRecord.entries
-              .map((eta, idx) => {
-                // 結合政府 ETA 時間戳與宿舍門口實際道路車程補償
-                let rawMins = 0;
-                let adjustedDate = null;
-
-                if (eta.timestamp) {
-                  const baseDate = new Date(eta.timestamp);
-                  adjustedDate = new Date(baseDate.getTime() + offsetMins * 60000);
-                  const diffSec = Math.round((adjustedDate.getTime() - nowMs) / 1000);
-                  rawMins = Math.max(0, Math.round(diffSec / 60));
-                } else if (typeof eta.diff === 'number') {
-                  rawMins = Math.max(0, eta.diff + offsetMins);
-                  adjustedDate = new Date(nowMs + rawMins * 60000);
-                }
-
-                const isArriving = rawMins <= 0;
-                const countdownMain = isArriving ? '即將到達' : String(rawMins);
-                const countdownUnit = isArriving ? '' : '分鐘';
-                const clockStr = adjustedDate ? formatDateToHkHHMM(adjustedDate) : '--:--';
-                const catchInfo = evaluateCatchStatus(rawMins, walkMins);
-
-                const remarkText = (eta.remarks_tc || '').trim();
-                const isScheduled = eta.gps === false || /預定|未開出/.test(remarkText);
-                const sourceBadgeHtml = isScheduled
-                  ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold shrink-0">預定班次</span>`
-                  : `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot"></span>實時 GPS</span>`;
-
-                const remarkLineHtml = remarkText
-                  ? `<div class="mt-0.5 text-[10px] text-amber-700 dark:text-amber-400 font-semibold truncate" title="${escapeHtml(remarkText)}">${escapeHtml(remarkText)}</div>`
-                  : '';
-
-                return `
-                  <div class="rounded-xl border p-2.5 flex flex-col justify-between min-h-[118px] transition ${catchInfo.cardClass}">
-                    <div class="flex items-center justify-between gap-1 flex-wrap">
-                      <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500">第 ${idx + 1} 班</span>
-                      ${sourceBadgeHtml}
-                    </div>
-
-                    <div class="my-1.5">
-                      <div class="flex items-baseline gap-0.5 tabular-nums">
-                        <span class="${
-                          isArriving ? 'text-base sm:text-lg font-black' : 'text-2xl sm:text-[26px] font-black'
-                        } leading-none tracking-tight ${catchInfo.numClass}">${escapeHtml(countdownMain)}</span>
-                        ${
-                          countdownUnit
-                            ? `<span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">${countdownUnit}</span>`
-                            : ''
-                        }
-                      </div>
-                      <div class="mt-1 text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
-                        ${mode === 'downhill' ? '門口' : '到站'} ${escapeHtml(clockStr)}
-                      </div>
-                      ${remarkLineHtml}
-                    </div>
-
-                    <div class="pt-0.5">
-                      <span class="block w-full text-center px-1.5 py-1 rounded-lg text-[10px] font-black leading-tight tracking-tight ${catchInfo.badgeClass}">
-                        ${escapeHtml(catchInfo.label)}
-                      </span>
-                    </div>
-                  </div>
-                `;
-              })
-              .join('');
-
-            etaBodyHtml = `<div class="mt-3 grid grid-cols-3 gap-2">${itemsHtml}</div>`;
-          }
-
-          return `
-            <article class="rounded-2xl bg-white dark:bg-[#1e293b] border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-4 transition">
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex items-start gap-3 min-w-0">
-                  <!-- 綠頂專線小巴路線牌 -->
-                  <div class="shrink-0 rounded-xl overflow-hidden shadow-sm border border-emerald-800/20 min-w-[66px] text-center">
-                    <div class="h-1.5 bg-gmb-roof"></div>
-                    <div class="bg-gmb-green text-white px-2.5 py-1.5 font-black text-lg leading-none tracking-tight tabular-nums">
-                      ${escapeHtml(route.routeCode)}
-                    </div>
-                  </div>
-
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      ${routeTagHtml}
-                      ${variantPillHtml}
-                      <span class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400">${escapeHtml(route.region || 'NT')}</span>
-                    </div>
-                    <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-snug mt-1 truncate" title="${directionText}">
-                      ${directionText}
-                    </h3>
-                  </div>
-                </div>
-
-                <!-- 卡片操作按鈕 -->
-                <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    data-action="switch-stop"
-                    data-route-id="${escapeHtml(route.id)}"
-                    class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition min-h-[34px]"
-                  >
-                    切換車站
-                  </button>
-                  <button
-                    type="button"
-                    data-action="delete-route"
-                    data-route-id="${escapeHtml(route.id)}"
-                    title="移除此路線"
-                    aria-label="移除路線 ${escapeHtml(route.routeCode)}"
-                    class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-600 flex items-center justify-center text-xs font-bold transition"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              ${stopInfoHtml}
-              ${unmatchedWarningHtml}
-              ${etaBodyHtml}
-            </article>
-          `;
-        })
-        .join('');
-    }
-
-    function renderMtrSection() {
-      const container = document.getElementById('mtrCardsContainer');
-      if (!container) return;
-
-      if (state.mtrData.status === 'loading') {
-        container.innerHTML = `
-          <div class="h-44 rounded-2xl bg-white dark:bg-[#1e293b] border border-slate-200/80 dark:border-slate-700/80 animate-pulse"></div>
-          <div class="h-44 rounded-2xl bg-white dark:bg-[#1e293b] border border-slate-200/80 dark:border-slate-700/80 animate-pulse"></div>
-        `;
-        return;
-      }
-
-      if (state.mtrData.status === 'error') {
-        container.innerHTML = `
-          <div class="sm:col-span-2 rounded-2xl bg-white dark:bg-[#1e293b] border border-amber-200 dark:border-amber-800/80 p-4 space-y-2 text-xs">
-            <div class="font-extrabold text-amber-800 dark:text-amber-300">⚠️ 暫時未能讀取港鐵實時列車班次</div>
-            <p class="text-slate-600 dark:text-slate-300">${escapeHtml(state.mtrData.errorMsg)}</p>
-            <div class="pt-1 flex flex-wrap gap-2">
-              <button type="button" data-action="retry-now" class="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-700 text-white font-bold">立即重試</button>
-              <a href="https://www.mtr.com.hk/ch/customer/services/next_train.html" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold">
-                開啟港鐵官方「下一班列車」↗
-              </a>
-            </div>
-          </div>
-        `;
-        return;
-      }
-
-      const filter = getEffectiveMtrFilter();
-      const nowMs = Date.now();
-
-      const linesConfig = [
-        {
-          key: 'TCL',
-          name: '東涌線',
-          stripeClass: 'bg-mtr-tcl',
-          badgeClass: 'bg-orange-100 dark:bg-orange-950/70 text-orange-800 dark:text-orange-300',
-          groups: [
-            { id: 'TCL_DOWN', label: '往香港 (過海)', dirKey: 'DOWN', isCrossHarbour: true, platDefault: '4' },
-            { id: 'TCL_UP', label: '往東涌 / 青衣', dirKey: 'UP', isCrossHarbour: false, platDefault: '3' },
-          ],
-        },
-        {
-          key: 'TWL',
-          name: '荃灣線',
-          stripeClass: 'bg-mtr-twl',
-          badgeClass: 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300',
-          groups: [
-            { id: 'TWL_DOWN', label: '往中環 (過海)', dirKey: 'DOWN', isCrossHarbour: true, platDefault: '2' },
-            { id: 'TWL_UP', label: '往荃灣', dirKey: 'UP', isCrossHarbour: false, platDefault: '1' },
-          ],
-        },
-      ];
-
-      container.innerHTML = linesConfig
-        .map((line) => {
-          const linePayload = state.mtrData[line.key] || {};
-          const visibleGroups =
-            filter === 'cross_harbour'
-              ? line.groups.filter((g) => g.isCrossHarbour)
-              : line.groups;
-
-          const groupsHtml = visibleGroups
-            .map((grp) => {
-              const rawTrains = Array.isArray(linePayload[grp.dirKey]) ? linePayload[grp.dirKey] : [];
-              const nextTrains = rawTrains.slice(0, 2);
-
-              let trainsHtml = '';
-              if (nextTrains.length === 0) {
-                trainsHtml = `<p class="text-xs text-slate-400 py-2">暫無列車班次資料</p>`;
-              } else {
-                trainsHtml = nextTrains
-                  .map((tr, i) => {
-                    const parsedTime = parseHkDateTime(tr.time);
-                    let mins = 0;
-                    if (parsedTime) {
-                      mins = Math.max(0, Math.round((parsedTime.getTime() - nowMs) / 60000));
-                    } else if (tr.ttnt !== undefined && tr.ttnt !== '') {
-                      mins = Math.max(0, parseInt(tr.ttnt, 10) || 0);
-                    }
-                    const destName = MTR_DEST_NAMES[tr.dest] || tr.dest || grp.label;
-                    const plat = tr.plat || grp.platDefault;
-                    const clockStr = parsedTime ? formatDateToHkHHMM(parsedTime) : '';
-                    const isArriving = mins <= 0;
-
-                    return `
-                      <div class="flex items-center justify-between gap-2 py-2 ${
-                        i > 0 ? 'border-t border-slate-100 dark:border-slate-800' : ''
-                      }">
-                        <div class="flex items-center gap-2 min-w-0">
-                          <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-black flex items-center justify-center text-slate-700 dark:text-slate-200 shrink-0">
-                            ${escapeHtml(plat)}
-                          </span>
-                          <div class="min-w-0">
-                            <div class="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">
-                              ${escapeHtml(destName)}
-                            </div>
-                            ${
-                              clockStr
-                                ? `<div class="text-[10px] font-mono text-slate-400 tabular-nums">${escapeHtml(clockStr)}</div>`
-                                : ''
-                            }
-                          </div>
-                        </div>
-                        <div class="text-right shrink-0 tabular-nums">
-                          <span class="text-base font-black ${
-                            isArriving
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-slate-900 dark:text-white'
-                          }">
-                            ${isArriving ? '即將到達' : `${mins} 分鐘`}
-                          </span>
-                        </div>
-                      </div>
-                    `;
-                  })
-                  .join('');
-              }
-
-              return `
-                <div class="rounded-xl bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/70 px-3 py-2">
-                  <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-500 dark:text-slate-400 pb-1">
-                    <span>${escapeHtml(grp.label)}</span>
-                    <span>${escapeHtml(grp.platDefault)} 號月台</span>
-                  </div>
-                  ${trainsHtml}
-                </div>
-              `;
-            })
-            .join('');
-
-          return `
-            <article class="rounded-2xl bg-white dark:bg-[#1e293b] border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
-              <div class="h-1.5 ${line.stripeClass}"></div>
-              <div class="p-4 space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <span class="px-2 py-0.5 rounded-lg text-xs font-black ${line.badgeClass}">
-                    ${escapeHtml(line.name)}
-                  </span>
-                  <span class="text-[11px] font-bold text-slate-400">荔景站</span>
-                </div>
-                <div class="space-y-2">
-                  ${groupsHtml}
-                </div>
-              </div>
-            </article>
-          `;
-        })
-        .join('');
-    }
-
-    function renderWeatherBar() {
-      const el = document.getElementById('weatherContent');
-      if (!el) return;
-
-      if (state.weatherData.status === 'loading') {
-        el.innerHTML = `<span class="text-xs text-slate-400 animate-pulse">正在讀取香港天文台葵青／青衣實時天氣...</span>`;
-        return;
-      }
-
-      if (state.weatherData.status === 'error') {
-        el.innerHTML = `<span class="text-xs text-slate-400">暫未能讀取天文台實時天氣</span>`;
-        return;
-      }
-
-      const w = state.weatherData;
-      const iconInfo = HKO_ICON_MAP[w.iconCode] || { emoji: '🌤️', text: '實時天氣' };
-      const tempText = w.temp !== null ? `${w.temp}°C` : '--°C';
-      const humText = w.humidity !== null ? `濕度 ${w.humidity}%` : '';
-      const rainText =
-        typeof w.rainfallMax === 'number' && w.rainfallMax > 0
-          ? ` · 葵青雨量 ${w.rainfallMax}mm（記得帶遮）`
-          : '';
-
-      const warningHtml =
-        w.warnings && w.warnings.length > 0
-          ? `<div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-1.5">
-              ${w.warnings
-                .map(
-                  (msg) =>
-                    `<span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-[11px] font-bold">⚠️ ${escapeHtml(msg)}</span>`
-                )
-                .join('')}
-            </div>`
-          : '';
-
-      el.className = 'w-full';
-      el.innerHTML = `
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="text-xl shrink-0" aria-hidden="true">${iconInfo.emoji}</span>
-            <div class="min-w-0">
-              <div class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
-                ${escapeHtml(w.place || '葵青')} ${escapeHtml(tempText)} · ${escapeHtml(iconInfo.text)}
-              </div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                ${escapeHtml(humText)}${escapeHtml(rainText)}
-              </div>
-            </div>
-          </div>
-          <span class="text-[10px] font-bold text-slate-400 shrink-0">香港天文台</span>
-        </div>
-        ${warningHtml}
-      `;
-    }
-
-    /* =====================================================================
-     * 12. 切換車站彈窗、新增路線彈窗與連線診斷彈窗
-     * ===================================================================== */
-    async function openStopPickerModal(routeId) {
-      const mode = state.activeMode;
-      const route = (state.gmbRoutesByMode[mode] || []).find((r) => r.id === routeId);
-      if (!route) return;
-
-      state.activeStopPickerRouteId = routeId;
-      const modal = document.getElementById('stopPickerModal');
-      const titleEl = document.getElementById('stopModalTitle');
-      const listEl = document.getElementById('stopModalList');
-
-      if (titleEl) {
-        titleEl.textContent = `${route.routeCode} 號線 · 選擇上車站點`;
-      }
-      if (listEl) {
-        listEl.innerHTML = `<p class="text-xs text-slate-400 py-6 text-center animate-pulse">正在載入完整站序表...</p>`;
-      }
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
-
-      try {
-        const variants = await getGmbRouteVariants(route.region, route.routeCode);
-        const normalVariants = variants.filter((v) => !(v.description_tc || '').includes('特別'));
-        const targetVariants = normalVariants.length > 0 ? normalVariants : variants;
-
-        let html = '';
-        for (const variant of targetVariants) {
-          for (const dir of variant.directions || []) {
-            const stops = await getGmbRouteStops(variant.route_id, dir.route_seq);
-            html += `
-              <div class="pt-2 pb-1 text-xs font-black text-gmb-green dark:text-emerald-400">
-                方向：${escapeHtml(dir.orig_tc)} → ${escapeHtml(dir.dest_tc)}
-              </div>
-            `;
-            html += stops
-              .map((st, idx) => {
-                const isSelected =
-                  route.routeId === variant.route_id &&
-                  route.routeSeq === dir.route_seq &&
-                  route.stopSeq === st.stop_seq;
-                const nextSt = stops[idx + 1] ? stops[idx + 1].name_tc : '終點站';
-                return `
-                  <button
-                    type="button"
-                    data-pick-stop="1"
-                    data-variant-id="${variant.route_id}"
-                    data-variant-desc="${escapeHtml(variant.description_tc || '正常班次')}"
-                    data-route-seq="${dir.route_seq}"
-                    data-orig-tc="${escapeHtml(dir.orig_tc || '')}"
-                    data-dest-tc="${escapeHtml(dir.dest_tc || '')}"
-                    data-stop-seq="${st.stop_seq}"
-                    data-stop-id="${st.stop_id}"
-                    data-stop-name="${escapeHtml(st.name_tc || '')}"
-                    data-next-stop="${escapeHtml(nextSt)}"
-                    class="w-full text-left px-3.5 py-2.5 rounded-xl border transition flex items-center justify-between gap-2 ${
-                      isSelected
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-400 dark:border-emerald-700'
-                        : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200/70 dark:border-slate-700/70 hover:border-slate-400'
-                    }"
-                  >
-                    <div class="min-w-0">
-                      <div class="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                        ${st.stop_seq}. ${escapeHtml(st.name_tc)}
-                      </div>
-                      <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        下一站 → ${escapeHtml(nextSt)}
-                      </div>
-                    </div>
-                    ${
-                      isSelected
-                        ? `<span class="text-xs font-black text-emerald-600 dark:text-emerald-400 shrink-0">目前使用</span>`
-                        : `<span class="text-[11px] font-bold text-slate-400 shrink-0">選用</span>`
-                    }
-                  </button>
-                `;
-              })
-              .join('');
-          }
-        }
-        if (listEl) listEl.innerHTML = html || `<p class="text-xs text-slate-400 text-center py-4">找不到站點資料</p>`;
-      } catch (err) {
-        if (listEl) {
-          listEl.innerHTML = `<p class="text-xs text-rose-500 text-center py-4">${escapeHtml(err.message)}</p>`;
-        }
-      }
-    }
-
-    function closeStopPickerModal() {
-      const modal = document.getElementById('stopPickerModal');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-    }
-
-    async function runApiDiagnostics() {
-      const outEl = document.getElementById('diagnosticsResults');
-      if (!outEl) return;
-
-      const tests = [
-        {
-          name: '1. 運輸署專線小巴 API (46M 路線資料)',
-          url: `${API_BASE.GMB}/route/NT/46M`,
-        },
-        {
-          name: '2. 港鐵實時列車 API (荔景站東涌線)',
-          url: `${API_BASE.MTR}?line=TCL&sta=LAK&lang=TC`,
-        },
-        {
-          name: '3. 香港天文台實時天氣 API',
-          url: `${API_BASE.HKO}?dataType=rhrread&lang=tc`,
-        },
-      ];
-
-      outEl.innerHTML = `<p class="text-slate-500 animate-pulse">正在逐一測試三項政府開放數據介面，請稍候...</p>`;
-      const rows = [];
-
-      for (const t of tests) {
-        try {
-          const res = await fetchSmart(t.url, true);
-          rows.push(`
-            <div class="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-3 space-y-1">
-              <div class="flex items-center justify-between font-extrabold text-emerald-800 dark:text-emerald-300">
-                <span>✅ ${escapeHtml(t.name)}</span>
-                <span class="font-mono">${res.ms} ms (${escapeHtml(res.via)})</span>
-              </div>
-              <div class="font-mono text-[10px] text-slate-500 break-all">${escapeHtml(t.url)}</div>
-            </div>
-          `);
-        } catch (err) {
-          rows.push(`
-            <div class="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 p-3 space-y-1">
-              <div class="font-extrabold text-rose-800 dark:text-rose-300">❌ ${escapeHtml(t.name)}</div>
-              <div class="text-rose-700 dark:text-rose-200">${escapeHtml(err.message)}</div>
-              <div class="font-mono text-[10px] text-slate-500 break-all">${escapeHtml(t.url)}</div>
-            </div>
-          `);
-        }
-      }
-
-      outEl.innerHTML = rows.join('');
-    }
-
-    /* =====================================================================
-     * 13. 全面重新整理協調器 (triggerFullRefresh)
-     * ===================================================================== */
-    async function triggerFullRefresh(isInitial = false) {
-      state.countdown = REFRESH_INTERVAL_SEC;
-      updateCountdownVisual();
-      updateOfflineBanner();
-
-      if (state.demoMode) {
-        loadDemoData();
-        return;
-      }
-
-      const syncEl = document.getElementById('lastSyncText');
-      if (syncEl && !isInitial) {
-        syncEl.textContent = '更新中...';
-      }
-
-      await Promise.allSettled([
-        fetchAllGmbForMode(state.activeMode),
-        fetchMtrSchedule(),
-        fetchHkoWeather(),
-      ]);
-
-      if (syncEl) {
-        syncEl.textContent = `已同步 ${formatDateToHkHHMM(new Date())}`;
-      }
-    }
-
-    /* =====================================================================
-     * 14. 事件綁定 (bindEvents)
-     * ===================================================================== */
-    function bindEvents() {
-      // 主題切換
-      document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
-        const isDark = document.documentElement.classList.toggle('dark');
-        writeStorage(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
-        const metaTheme = document.getElementById('themeColorMeta');
-        if (metaTheme) metaTheme.setAttribute('content', isDark ? '#0b1120' : '#007A3D');
-      });
-
-      // 手動立即刷新
-      document.getElementById('manualRefreshBtn')?.addEventListener('click', () => {
-        triggerFullRefresh(false);
-      });
-
-      // 通勤模式三段按鈕
-      document.querySelectorAll('button[data-set-mode]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const newSetting = btn.dataset.setMode;
-          state.commuteSetting = newSetting;
-          writeStorage(STORAGE_KEYS.COMMUTE_MODE, newSetting);
-          renderModeHeaderAndControls();
-          renderGmbSection();
-          renderMtrSection();
-          triggerFullRefresh(false);
-        });
-      });
-
-      // 步行時間加減
-      document.getElementById('walkMinusBtn')?.addEventListener('click', () => {
-        const mode = state.activeMode;
-        const nextVal = Math.max(0, (state.walkTimeByMode[mode] ?? 3) - 1);
-        state.walkTimeByMode[mode] = nextVal;
-        writeStorage(mode === 'downhill' ? STORAGE_KEYS.WALK_DOWNHILL : STORAGE_KEYS.WALK_UPHILL, nextVal);
-        renderModeHeaderAndControls();
-        renderGmbSection();
-      });
-
-      document.getElementById('walkPlusBtn')?.addEventListener('click', () => {
-        const mode = state.activeMode;
-        const nextVal = Math.min(20, (state.walkTimeByMode[mode] ?? 3) + 1);
-        state.walkTimeByMode[mode] = nextVal;
-        writeStorage(mode === 'downhill' ? STORAGE_KEYS.WALK_DOWNHILL : STORAGE_KEYS.WALK_UPHILL, nextVal);
-        renderModeHeaderAndControls();
-        renderGmbSection();
-      });
-
-      // 港鐵方向篩選
-      document.querySelectorAll('button[data-mtr-filter]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          state.mtrFilterOverride = btn.dataset.mtrFilter;
-          writeStorage(STORAGE_KEYS.MTR_FILTER, state.mtrFilterOverride);
-          renderModeHeaderAndControls();
-          renderMtrSection();
-        });
-      });
-
-      // 重設小巴路線
-      document.getElementById('resetRoutesBtn')?.addEventListener('click', () => {
-        const mode = state.activeMode;
-        state.gmbRoutesByMode[mode] = DEFAULT_ROUTES_BY_MODE[mode].map((r) => ({ ...r }));
-        saveRoutesForMode(mode);
-        renderGmbSection();
-        triggerFullRefresh(false);
-      });
-
-      // 事件委派：小巴卡片按鈕與錯誤橫幅操作
-      document.addEventListener('click', (e) => {
-        const actionBtn = e.target.closest('[data-action]');
-        if (!actionBtn) return;
-
-        const action = actionBtn.dataset.action;
-        if (action === 'switch-stop') {
-          openStopPickerModal(actionBtn.dataset.routeId);
-        } else if (action === 'delete-route') {
-          const mode = state.activeMode;
-          const targetId = actionBtn.dataset.routeId;
-          state.gmbRoutesByMode[mode] = (state.gmbRoutesByMode[mode] || []).filter(
-            (r) => r.id !== targetId
-          );
-          saveRoutesForMode(mode);
-          renderGmbSection();
-        } else if (action === 'retry-now') {
-          triggerFullRefresh(false);
-        } else if (action === 'open-diag') {
-          const modal = document.getElementById('diagnosticsModal');
-          if (modal) {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            runApiDiagnostics();
-          }
-        } else if (action === 'enable-demo') {
-          state.demoMode = true;
-          renderModeHeaderAndControls();
-          loadDemoData();
-        } else if (action === 'reset-routes') {
-          const mode = state.activeMode;
-          state.gmbRoutesByMode[mode] = DEFAULT_ROUTES_BY_MODE[mode].map((r) => ({ ...r }));
-          saveRoutesForMode(mode);
-          renderGmbSection();
-          triggerFullRefresh(false);
-        }
-      });
-
-      // 切換車站彈窗選擇車站
-      document.getElementById('stopModalList')?.addEventListener('click', (e) => {
-        const pickBtn = e.target.closest('button[data-pick-stop]');
-        if (!pickBtn) return;
-
-        const mode = state.activeMode;
-        const route = (state.gmbRoutesByMode[mode] || []).find(
-          (r) => r.id === state.activeStopPickerRouteId
-        );
-        if (!route) return;
-
-        const stopName = pickBtn.dataset.stopName || '';
-        const autoCal = getDefaultLabelAndOffsetForStop(stopName, mode);
-
-        route.routeId = Number(pickBtn.dataset.variantId);
-        route.variantDesc = pickBtn.dataset.variantDesc || '正常班次';
-        route.routeSeq = Number(pickBtn.dataset.routeSeq);
-        route.origTc = pickBtn.dataset.origTc || '';
-        route.destTc = pickBtn.dataset.destTc || '';
-        route.stopSeq = Number(pickBtn.dataset.stopSeq);
-        route.stopId = Number(pickBtn.dataset.stopId);
-        route.stopNameTc = stopName;
-        route.nextStopNameTc = pickBtn.dataset.nextStop || '終點站';
-        route.customLabel = autoCal.customLabel;
-        route.offsetMins = autoCal.offsetMins;
-        route.unmatchedStop = false;
-
-        saveRoutesForMode(mode);
-        closeStopPickerModal();
-        renderGmbSection();
-        fetchSingleGmbEta(route, mode);
-      });
-
-      document.getElementById('closeStopModalBtn')?.addEventListener('click', closeStopPickerModal);
-      document.getElementById('stopPickerModal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'stopPickerModal') closeStopPickerModal();
-      });
-
-      // 新增小巴路線彈窗
-      document.getElementById('openAddRouteBtn')?.addEventListener('click', () => {
-        const modal = document.getElementById('addRouteModal');
-        if (modal) {
-          modal.classList.remove('hidden');
-          modal.classList.add('flex');
-        }
-      });
-      document.getElementById('closeAddRouteModalBtn')?.addEventListener('click', () => {
-        const modal = document.getElementById('addRouteModal');
-        if (modal) {
-          modal.classList.add('hidden');
-          modal.classList.remove('flex');
-        }
-      });
-      document.getElementById('addRouteForm')?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const region = document.getElementById('newRouteRegion').value || 'NT';
-        const code = (document.getElementById('newRouteCode').value || '').trim().toUpperCase();
-        const tag = (document.getElementById('newRouteTag').value || '').trim();
-        if (!code) return;
-
-        const mode = state.activeMode;
-        const newRoute = {
-          id: `${region}-${code}-${Date.now().toString(36)}`,
-          region,
-          routeCode: code,
-          tag,
-        };
-        state.gmbRoutesByMode[mode].push(newRoute);
-        saveRoutesForMode(mode);
-
-        document.getElementById('newRouteCode').value = '';
-        document.getElementById('newRouteTag').value = '';
-        const modal = document.getElementById('addRouteModal');
-        if (modal) {
-          modal.classList.add('hidden');
-          modal.classList.remove('flex');
-        }
-
-        renderGmbSection();
-        fetchSingleGmbEta(newRoute, mode);
-      });
-
-      // 連線診斷彈窗與 Demo 切換
-      document.getElementById('openDiagnosticsBtn')?.addEventListener('click', () => {
-        const modal = document.getElementById('diagnosticsModal');
-        if (modal) {
-          modal.classList.remove('hidden');
-          modal.classList.add('flex');
-          runApiDiagnostics();
-        }
-      });
-      document.getElementById('closeDiagnosticsBtn')?.addEventListener('click', () => {
-        const modal = document.getElementById('diagnosticsModal');
-        if (modal) {
-          modal.classList.add('hidden');
-          modal.classList.remove('flex');
-        }
-      });
-      document.getElementById('runDiagnosticsBtn')?.addEventListener('click', runApiDiagnostics);
-      document.getElementById('diagEnableDemoBtn')?.addEventListener('click', () => {
-        state.demoMode = !state.demoMode;
-        const modal = document.getElementById('diagnosticsModal');
-        if (modal) {
-          modal.classList.add('hidden');
-          modal.classList.remove('flex');
-        }
-        renderModeHeaderAndControls();
-        triggerFullRefresh(false);
-      });
-
-      document.getElementById('toggleDemoModeBtn')?.addEventListener('click', () => {
-        state.demoMode = !state.demoMode;
-        renderModeHeaderAndControls();
-        triggerFullRefresh(false);
-      });
-
-      // 網絡連線狀態與 iPhone 鎖屏重開頁面時自動同步
-      window.addEventListener('online', () => {
-        updateOfflineBanner();
-        triggerFullRefresh(false);
-      });
-      window.addEventListener('offline', updateOfflineBanner);
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          updateHkClock();
-          triggerFullRefresh(false);
-        }
-      });
-    }
-
-    /* =====================================================================
-     * 15. 初始化與啟動排程 (Startup & Live Countdown Loop)
-     * ===================================================================== */
-    function init() {
-      generateNativeAppIcon();
-
-      // 讀取使用者儲存的通勤模式、步行時間、港鐵篩選及路線設定
-      const savedMode = readStorage(STORAGE_KEYS.COMMUTE_MODE, 'auto');
-      state.commuteSetting =
-        savedMode === 'downhill' || savedMode === 'uphill' ? savedMode : 'auto';
-
-      const savedWalkDown = Number(readStorage(STORAGE_KEYS.WALK_DOWNHILL, 3));
-      const savedWalkUp = Number(readStorage(STORAGE_KEYS.WALK_UPHILL, 2));
-      state.walkTimeByMode.downhill = Number.isNaN(savedWalkDown) ? 3 : savedWalkDown;
-      state.walkTimeByMode.uphill = Number.isNaN(savedWalkUp) ? 2 : savedWalkUp;
-
-      const savedMtrFilter = readStorage(STORAGE_KEYS.MTR_FILTER, null);
-      state.mtrFilterOverride =
-        savedMtrFilter === 'cross_harbour' || savedMtrFilter === 'all' ? savedMtrFilter : null;
-
-      const savedDownRoutes = readStorage(STORAGE_KEYS.GMB_DOWNHILL, null);
-      const savedUpRoutes = readStorage(STORAGE_KEYS.GMB_UPHILL, null);
-      state.gmbRoutesByMode.downhill = Array.isArray(savedDownRoutes) && savedDownRoutes.length > 0
-        ? savedDownRoutes
-        : DEFAULT_ROUTES_BY_MODE.downhill.map((r) => ({ ...r }));
-      state.gmbRoutesByMode.uphill = Array.isArray(savedUpRoutes) && savedUpRoutes.length > 0
-        ? savedUpRoutes
-        : DEFAULT_ROUTES_BY_MODE.uphill.map((r) => ({ ...r }));
-
-      const envLabel = document.getElementById('envOriginLabel');
-      if (envLabel) {
-        envLabel.textContent = `執行環境：${getEnvContextLabel()}`;
-      }
-
-      updateHkClock();
-      updateOfflineBanner();
-      renderModeHeaderAndControls();
-      renderGmbSection();
-      renderMtrSection();
-      renderWeatherBar();
-      bindEvents();
-
-      // 每 1 秒更新香港實時鐘與同步倒數環；每 5 秒重算本地倒數；每 15 秒向政府 API 同步
-      setInterval(() => {
-        updateHkClock();
-
-        if (state.commuteSetting === 'auto') {
-          const detected = detectAutoCommuteMode();
-          if (detected !== state.activeMode) {
-            renderModeHeaderAndControls();
-            renderGmbSection();
-            if (!state.demoMode) {
-              fetchAllGmbForMode(state.activeMode);
+      // 1) Explicit month + day/range schedule (e.g. "NOVEMBER 02-03 05-10 ... 0000-1300")
+      const monthRegex = new RegExp(`\\b(${MONTH_REGEX_SRC})\\b([\\s\\S]*?)(?=\\b(?:${MONTH_REGEX_SRC})\\b|$)`, 'g');
+      const monthChunks = [...normalized.matchAll(monthRegex)];
+      if (monthChunks.length > 0) {
+        const globalWins = extractUtcTimeWindows(normalized);
+        for (const chunk of monthChunks) {
+          const monIdx = MONTHS[chunk[1]];
+          const body = chunk[2];
+          const days = expandDayTokens(body);
+          const wins = extractUtcTimeWindows(body);
+          const effectiveWins = wins.length ? wins : globalWins;
+
+          for (const c of candidates) {
+            if (c.m !== monIdx) continue;
+            if (days.size === 0 || days.has(c.d)) {
+              if (utcDayWindowsOverlapRange(c.y, c.m, c.d, effectiveWins, hkt.startUtc, hkt.endUtc)) return true;
             }
           }
         }
+        return false;
+      }
 
-        state.countdown -= 1;
-        if (state.countdown <= 0) {
-          triggerFullRefresh(false);
-        } else {
-          updateCountdownVisual();
-          if (state.countdown % 5 === 0) {
-            renderGmbSection();
-            renderMtrSection();
+      // 2) Weekday schedule (e.g. "MON-FRI 0100-0900", "MON WED FRI 0200-0800")
+      if (/\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b/.test(normalized)) {
+        const allowedDows = new Set();
+        for (const rm of normalized.matchAll(/\b(MON|TUE|WED|THU|FRI|SAT|SUN)\s*-\s*(MON|TUE|WED|THU|FRI|SAT|SUN)\b/g)) {
+          let cur = WEEKDAYS[rm[1]], end = WEEKDAYS[rm[2]];
+          for (let i = 0; i < 7; i++) {
+            allowedDows.add(cur);
+            if (cur === end) break;
+            cur = (cur + 1) % 7;
           }
         }
-      }, 1000);
+        for (const dm of normalized.matchAll(/\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b/g)) {
+          allowedDows.add(WEEKDAYS[dm[1]]);
+        }
+        const wins = extractUtcTimeWindows(normalized);
+        for (const c of candidates) {
+          if (allowedDows.has(c.dow) && utcDayWindowsOverlapRange(c.y, c.m, c.d, wins, hkt.startUtc, hkt.endUtc)) return true;
+        }
+        return false;
+      }
 
-      // 首次載入立即同步最新班次與天氣
-      triggerFullRefresh(true);
+      // 3) Day numbers without month names (e.g. "04 05 24 25 2315-0600" or "24-28 0100-0900")
+      const bareDays = expandDayTokens(normalized);
+      if (bareDays.size > 0) {
+        const wins = extractUtcTimeWindows(normalized);
+        for (const c of candidates) {
+          if (bareDays.has(c.d) && utcDayWindowsOverlapRange(c.y, c.m, c.d, wins, hkt.startUtc, hkt.endUtc)) return true;
+        }
+        return false;
+      }
+
+      return true;
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
-    } else {
-      init();
+    function isNotamActiveToday(notam) {
+      const hkt = getNowHKT();
+      const fromD = notam.validFromUtc ? new Date(notam.validFromUtc) : null;
+      const toD = notam.validToUtc ? new Date(notam.validToUtc) : null;
+      if (fromD && !isNaN(fromD.getTime()) && fromD > hkt.endUtc) return false;
+      if (toD && !isNaN(toD.getTime()) && toD < hkt.startUtc) return false;
+      return matchesExplicitScheduleDay(notam, hkt);
     }
+
+    function getNotamStatus(notam) {
+      const now = new Date();
+      const fromD = notam.validFromUtc ? new Date(notam.validFromUtc) : null;
+      const toD = notam.validToUtc ? new Date(notam.validToUtc) : null;
+      if (toD && !isNaN(toD.getTime()) && now > toD) {
+        return { code: 'expired', activeToday: false, color: '#64748b', dot: 'bg-slate-500' };
+      }
+
+      const activeToday = isNotamActiveToday(notam);
+      if (!activeToday) {
+        return { code: 'upcoming', activeToday: false, color: '#60a5fa', dot: 'bg-blue-300' };
+      }
+
+      const inOverallRange = (!fromD || now >= fromD) && (!toD || now <= toD);
+      let inWindow = true;
+      if (Array.isArray(notam.dailyWindowsUtc) && notam.dailyWindowsUtc.length) {
+        const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+        inWindow = notam.dailyWindowsUtc.some(w => {
+          const s = toMinutes(w.start), e = toMinutes(w.end);
+          return s !== null && e !== null && (e >= s ? (cur >= s && cur <= e) : (cur >= s || cur <= e));
+        });
+      }
+
+      if (inOverallRange && inWindow) {
+        return { code: 'live', activeToday: true, color: '#0ea5e9', dot: 'bg-sky-400' };
+      }
+      return { code: 'today', activeToday: true, color: '#3b82f6', dot: 'bg-blue-500' };
+    }
+
+    /**
+     * ============================================================================
+     * 5. LIVE HK AIS SERIES-C NOTAM FETCHER & ICAO PARSER
+     * ============================================================================
+     */
+    function parseIcaoCoord(tok) {
+      // 6-digit lat + 7-digit lng (e.g. 222612N1141629E or N222612E1141629)
+      let m = tok.match(/^([NS])?(\d{2})(\d{2})(\d{2})([NS])?([EW])?(\d{3})(\d{2})(\d{2})([EW])?$/i);
+      if (m) {
+        let lat = parseInt(m[2], 10) + parseInt(m[3], 10) / 60 + parseInt(m[4], 10) / 3600;
+        let lng = parseInt(m[7], 10) + parseInt(m[8], 10) / 60 + parseInt(m[9], 10) / 3600;
+        if ((m[1] || m[5] || 'N').toUpperCase() === 'S') lat = -lat;
+        if ((m[6] || m[10] || 'E').toUpperCase() === 'W') lng = -lng;
+        if (lat >= 21.5 && lat <= 23.2 && lng >= 113.2 && lng <= 115.2) return [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
+      }
+      // 4-digit lat + 5-digit lng (e.g. 2217N11410E)
+      m = tok.match(/^([NS])?(\d{2})(\d{2})([NS])?([EW])?(\d{3})(\d{2})([EW])?$/i);
+      if (m) {
+        let lat = parseInt(m[2], 10) + parseInt(m[3], 10) / 60;
+        let lng = parseInt(m[6], 10) + parseInt(m[7], 10) / 60;
+        if ((m[1] || m[4] || 'N').toUpperCase() === 'S') lat = -lat;
+        if ((m[5] || m[8] || 'E').toUpperCase() === 'W') lng = -lng;
+        if (lat >= 21.5 && lat <= 23.2 && lng >= 113.2 && lng <= 115.2) return [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
+      }
+      return null;
+    }
+
+    function parseIcaoStamp(s) {
+      if (!s || s.length < 10) return null;
+      return `20${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4, 6)}T${s.slice(6, 8)}:${s.slice(8, 10)}:00Z`;
+    }
+
+    function parseSeriesCBlock(raw) {
+      const text = raw.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+      const idM = text.match(/\b(C\d{4}\/\d{2})\b/i);
+      if (!idM) return null;
+      const notamNo = idM[1].toUpperCase();
+
+      // Match Q-line allowing internal spaces (e.g. "Q) VHHK/QWULW/IV/BO /W /000/006/2226N11416E002")
+      const qM = text.match(/\bQ\)\s*([A-Z]{4})\/([A-Z]{5})\/[^\/]*\/[^\/]*\/[^\/]*\/\d{3}\/\d{3}\/(\d{4}[NS]\d{5}[EW]\d{3})/);
+      const bM = text.match(/\bB\)\s*(\d{10})\b/);
+      const cM = text.match(/\bC\)\s*(\d{10}(?:EST)?|PERM)\b/i);
+      const dM = text.match(/\bD\)\s*(.+?)(?=\s+E\))/);
+      const eM = text.match(/\bE\)\s*(.+?)(?=\s+[FG]\)|$)/);
+      const gM = text.match(/\bG\)\s*([A-Z0-9]+(?:\s*(?:FT|M)\s*(?:AGL|AMSL)?)?)/i);
+
+      const eText = (eM ? eM[1] : text).replace(/\)\s*$/, '').trim();
+
+      // Extract coordinate tokens from E)
+      const tokens = eText.match(/\b(?:[NS]\d{4,6}[EW]\d{5,7}|\d{4,6}[NS]\d{5,7}[EW])\b/gi) || [];
+      const coords = tokens.map(parseIcaoCoord).filter(Boolean);
+
+      const radM = eText.match(/\b(\d+(?:\.\d+)?)\s*(KM|M|NM)\s*RADIUS\b/i)
+        || eText.match(/\bRADIUS\s*(?:OF\s*)?(\d+(?:\.\d+)?)\s*(KM|M|NM)\b/i);
+      let radius = null;
+      if (radM) {
+        const val = parseFloat(radM[1]);
+        const unit = radM[2].toUpperCase();
+        radius = unit === 'KM' ? Math.round(val * 1000) : (unit === 'NM' ? Math.round(val * 1852) : Math.round(val));
+      }
+
+      let geometryType = 'circle', coordinates = null, lat = null, lng = null;
+      if (coords.length >= 3 && !/\bRTE\b|\bROUTE\b/i.test(eText)) {
+        geometryType = 'polygon';
+        coordinates = coords;
+        lat = Number((coords.reduce((s, c) => s + c[0], 0) / coords.length).toFixed(5));
+        lng = Number((coords.reduce((s, c) => s + c[1], 0) / coords.length).toFixed(5));
+      } else if (coords.length >= 2) {
+        geometryType = 'polyline';
+        coordinates = coords;
+        lat = coords[0][0];
+        lng = coords[0][1];
+      } else if (coords.length === 1) {
+        geometryType = 'circle';
+        lat = coords[0][0];
+        lng = coords[0][1];
+      }
+
+      // Check for Hong Kong UTM GRID / MGRS reference in E) (e.g. "UTM GRID KK060925")
+      if (lat === null) {
+        const utmM = eText.match(/\b(?:UTM\s*(?:GRID|REF)?\s*)?((?:49|50)[Q]\s*)?([GJHK][EFKL]\s*\d{4,10})\b/i);
+        if (utmM) {
+          const ll = mgrsToLatLng(`${utmM[1] || ''}${utmM[2]}`);
+          if (ll) {
+            lat = ll[0];
+            lng = ll[1];
+          }
+        }
+      }
+
+      // Fallback to Q-line center & NM radius when E) has no explicit coordinates
+      if (qM) {
+        const qCenter = parseIcaoCoord(qM[3].slice(0, 11));
+        const qNm = parseInt(qM[3].slice(11, 14), 10);
+        if (lat === null && qCenter) {
+          lat = qCenter[0];
+          lng = qCenter[1];
+        }
+        if (radius === null && Number.isFinite(qNm) && qNm > 0 && qNm <= 25) {
+          radius = Math.round(qNm * 1852);
+        }
+      }
+
+      // Last-resort HK landmark geocode
+      if (lat === null) {
+        const lm = geocodeHK(eText);
+        lat = lm ? lm.lat : 22.3193;
+        lng = lm ? lm.lng : 114.1694;
+      }
+      if (radius === null) radius = 500;
+
+      const dailyWindowsUtc = [];
+      if (dM) {
+        for (const wm of dM[1].matchAll(/\b(\d{2})(\d{2})-(\d{2})(\d{2})\b/g)) {
+          dailyWindowsUtc.push({ start: `${wm[1]}:${wm[2]}`, end: `${wm[3]}:${wm[4]}` });
+        }
+      }
+
+      // Clean concise title
+      const shortTitle = eText
+        .replace(/ALL ACFT SHOULD EXER CTN.*$/i, '')
+        .replace(/ALL ACFT MUST REMAIN CLEAR.*$/i, '')
+        .replace(/BOUNDED BY.*$/i, '')
+        .replace(/WI\s+\d+(?:\.\d+)?\s*(?:M|KM)\s*RADIUS.*$/i, '')
+        .trim();
+
+      const cStamp = cM ? cM[1].toUpperCase().replace(/EST$/, '') : null;
+
+      return {
+        id: `notam-${notamNo.replace('/', '-')}`,
+        notamNo,
+        title: (shortTitle.length > 62 ? shortTitle.slice(0, 62) + '…' : shortTitle) || `Series-C ${notamNo}`,
+        geometryType,
+        lat,
+        lng,
+        radius,
+        coordinates,
+        upperLimit: gM ? gM[1].toUpperCase() : 'UNL',
+        validFromUtc: bM ? parseIcaoStamp(bM[1]) : new Date().toISOString(),
+        validToUtc: (cStamp && cStamp !== 'PERM') ? parseIcaoStamp(cStamp) : '2099-12-31T23:59:00Z',
+        dailyWindowsUtc,
+        dField: dM ? dM[1].trim() : '',
+        schedule: dM ? `${dM[1].trim()} UTC` : (bM && cStamp ? `${bM[1].slice(2, 6)} ${bM[1].slice(6)}–${cStamp === 'PERM' ? 'PERM' : cStamp.slice(6)} UTC` : 'Active'),
+        rawText: text
+      };
+    }
+
+    function extractSeriesCFromPayload(payload) {
+      if (!payload) return [];
+      const plain = String(payload)
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, '\n')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&');
+
+      // Split strictly on ICAO NOTAM start headers so parenthetical remarks inside E) are never truncated
+      const blocks = plain.split(/(?=(?:\(\s*|^|\n)\s*[AC]\d{4}\/\d{2}\s+NOTAM[NRC]\b)/i);
+      const parsedMap = new Map();
+
+      for (const blk of blocks) {
+        const trimmed = blk.trim();
+        if (!/^\(?\s*C\d{4}\/\d{2}\s+NOTAM[NRC]\b/i.test(trimmed)) continue;
+        // Trim any trailing header belonging to the next NOTAM (e.g. "C0494/26 200122 VHHHYNYX")
+        const cleanBlk = trimmed.replace(/\s+[AC]\d{4}\/\d{2}\s+\d{6}\s+[A-Z]{8}[\s\S]*$/i, '').trim();
+        const parsed = parseSeriesCBlock(cleanBlk);
+        if (parsed) parsedMap.set(parsed.notamNo, parsed);
+      }
+
+      return Array.from(parsedMap.values());
+    }
+
+    async function fetchSeriesCNotams() {
+      if (isFetching) return;
+      isFetching = true;
+
+      const icon = document.getElementById('syncIcon');
+      const label = document.getElementById('syncLabel');
+      icon.classList.add('animate-spin');
+      label.textContent = 'Syncing…';
+
+      const targetPortal = 'https://www.notam.ais.gov.hk/';
+      const endpoints = [
+        targetPortal,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetPortal)}`,
+        `https://corsproxy.io/?url=${encodeURIComponent(targetPortal)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetPortal)}`,
+        `https://r.jina.ai/${targetPortal}`
+      ];
+
+      let bestList = [];
+      for (const url of endpoints) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 7000);
+          const resp = await fetch(url, { signal: ctrl.signal });
+          clearTimeout(timer);
+          if (!resp.ok) continue;
+          const text = await resp.text();
+          const found = extractSeriesCFromPayload(text);
+          if (found.length > bestList.length) {
+            bestList = found;
+          }
+          // Stop early once we have a full Series-C feed
+          if (bestList.length >= 15) break;
+        } catch {
+          // Try next endpoint
+        }
+      }
+
+      const hkt = getNowHKT();
+      if (bestList.length > 0) {
+        seriesCNotams = bestList.sort((a, b) => b.notamNo.localeCompare(a.notamNo));
+        saveNotams();
+        const activeCount = seriesCNotams.filter(isNotamActiveToday).length;
+        document.getElementById('notamSyncStatus').textContent = `Synced ${hkt.hhmm} (${activeCount}/${seriesCNotams.length})`;
+        showToast(`Fetched ${seriesCNotams.length} Series-C (${activeCount} active today)`, 'emerald');
+      } else {
+        document.getElementById('notamSyncStatus').textContent = `Cached (${hkt.hhmm})`;
+        showToast('Live fetch blocked by CORS — use + Paste to import', 'amber');
+      }
+
+      refreshAll();
+      isFetching = false;
+      icon.classList.remove('animate-spin');
+      label.textContent = 'Fetch NOTAM-C';
+    }
+
+    function toggleManualNotamPaste(force) {
+      const box = document.getElementById('manualNotamBox');
+      box.classList.toggle('hidden', typeof force === 'boolean' ? !force : undefined);
+    }
+
+    function handleManualNotamImport() {
+      const raw = document.getElementById('manualNotamInput').value.trim();
+      if (!raw) return showToast('Paste Series-C NOTAM text first.', 'amber');
+      const found = extractSeriesCFromPayload(raw);
+      if (!found.length) return showToast('No Series-C NOTAMs (C####/##) detected.', 'red');
+
+      const byNo = new Map(seriesCNotams.map(n => [n.notamNo, n]));
+      found.forEach(n => byNo.set(n.notamNo, n));
+      seriesCNotams = Array.from(byNo.values()).sort((a, b) => b.notamNo.localeCompare(a.notamNo));
+      saveNotams();
+      document.getElementById('manualNotamInput').value = '';
+      toggleManualNotamPaste(false);
+      refreshAll();
+      showToast(`Imported ${found.length} Series-C NOTAM(s)`, 'emerald');
+    }
+
+    /**
+     * ============================================================================
+     * 6. LEAFLET MAP & NOTAM RENDERER
+     * ============================================================================
+     */
+    function safeMove(lat, lng, zoom, fly = true) {
+      if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const sz = map.getSize();
+      if (!sz || sz.x <= 0 || sz.y <= 0) {
+        map.invalidateSize({ animate: false });
+        map.setView([lat, lng], zoom, { animate: false });
+        return;
+      }
+      if (fly) map.flyTo([lat, lng], zoom, { duration: 0.8 });
+      else map.setView([lat, lng], zoom, { animate: false });
+    }
+
+    function initMap() {
+      const hkGeo = L.layerGroup([
+        L.tileLayer('https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/basemap/wgs84/{z}/{x}/{y}.png', { maxZoom: 19, attribution: 'Lands Dept HKSAR' }),
+        L.tileLayer('https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/label/hk/en/wgs84/{z}/{x}/{y}.png', { maxZoom: 19 })
+      ]);
+      const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: 'CARTO' });
+      const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Esri' });
+
+      map = L.map('hkMap', {
+        center: [22.335, 114.14],
+        zoom: 11,
+        layers: [hkGeo],
+        zoomControl: false
+      });
+
+      L.control.zoom({ position: 'topright' }).addTo(map);
+      L.control.layers({ 'HK GeoInfo': hkGeo, 'Dark': dark, 'Satellite': sat }, null, { position: 'topright' }).addTo(map);
+
+      notamLayer = L.layerGroup().addTo(map);
+
+      map.on('mousemove', (e) => {
+        const { lat, lng } = e.latlng;
+        document.getElementById('cursorDD').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('cursorUTM').textContent = latLngToMgrs(lat, lng, 4) || '—';
+      });
+
+      const el = document.getElementById('hkMap');
+      if (typeof ResizeObserver !== 'undefined' && el) {
+        new ResizeObserver(() => map && map.invalidateSize({ animate: false })).observe(el);
+      }
+      setTimeout(() => map && map.invalidateSize({ animate: false }), 150);
+    }
+
+    function resetMapView() {
+      safeMove(22.335, 114.14, 11, true);
+    }
+
+    function getVisibleNotams() {
+      return scopeFilter === 'today'
+        ? seriesCNotams.filter(isNotamActiveToday)
+        : seriesCNotams.filter(n => getNotamStatus(n).code !== 'expired');
+    }
+
+    function renderNotamsOnMap() {
+      notamLayer.clearLayers();
+      Object.keys(notamLayersById).forEach(k => delete notamLayersById[k]);
+
+      for (const n of getVisibleNotams()) {
+        if (!Number.isFinite(n.lat) || !Number.isFinite(n.lng)) continue;
+        const st = getNotamStatus(n);
+
+        let shape = null;
+        if (n.geometryType === 'polygon' && Array.isArray(n.coordinates) && n.coordinates.length >= 3) {
+          shape = L.polygon(n.coordinates, { color: st.color, weight: 1.75, fillColor: st.color, fillOpacity: 0.16 }).addTo(notamLayer);
+        } else if (n.geometryType === 'polyline' && Array.isArray(n.coordinates) && n.coordinates.length >= 2) {
+          shape = L.polyline(n.coordinates, { color: st.color, weight: 3, dashArray: '6, 5' }).addTo(notamLayer);
+        } else {
+          shape = L.circle([n.lat, n.lng], { radius: n.radius || 400, color: st.color, weight: 1.5, fillColor: st.color, fillOpacity: 0.14, dashArray: '4, 4' }).addTo(notamLayer);
+        }
+
+        const pin = L.marker([n.lat, n.lng], {
+          icon: L.divIcon({
+            html: `<span class="block w-2.5 h-2.5 rounded-full bg-blue-400 border border-slate-950 shadow"></span>`,
+            className: '',
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
+          })
+        }).addTo(notamLayer);
+
+        const utm = latLngToMgrs(n.lat, n.lng, 4);
+        const popup = `
+          <div class="space-y-1.5 text-xs max-w-[260px]">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono font-semibold text-blue-300">${esc(n.notamNo)}</span>
+              <span class="font-mono text-[10px] text-sky-300">${esc(n.upperLimit)}</span>
+            </div>
+            <div class="text-slate-100 leading-snug">${esc(n.title)}</div>
+            <div class="font-mono text-[10px] text-slate-400">${esc(n.schedule)}</div>
+            <div class="font-mono text-[10px] text-slate-400">${n.lat.toFixed(5)}, ${n.lng.toFixed(5)} · ${esc(utm)}</div>
+            <details class="pt-1 border-t border-slate-800">
+              <summary class="text-[10px] text-blue-400 cursor-pointer select-none">Raw NOTAM</summary>
+              <div class="mt-1 font-mono text-[9.5px] text-slate-300 max-h-24 overflow-y-auto thin-scroll select-text">${esc(n.rawText)}</div>
+            </details>
+          </div>
+        `;
+
+        const tip = `${n.notamNo} · ${n.upperLimit}`;
+        if (shape) shape.bindTooltip(tip, { sticky: true, className: 'notam-tip' }).bindPopup(popup);
+        pin.bindTooltip(tip, { direction: 'top', offset: [0, -8], className: 'notam-tip' }).bindPopup(popup);
+        notamLayersById[n.id] = pin;
+      }
+    }
+
+    function focusNotam(id) {
+      const n = seriesCNotams.find(x => x.id === id);
+      if (!n) return;
+      safeMove(n.lat, n.lng, (n.radius && n.radius <= 300) ? 16 : 13, true);
+      if (notamLayersById[id]) setTimeout(() => notamLayersById[id].openPopup(), 350);
+      if (window.innerWidth < 768) toggleMobileSidebar(false);
+    }
+
+    /**
+     * ============================================================================
+     * 7. MINIMALIST SIDEBAR LIST & UTILITIES
+     * ============================================================================
+     */
+    function setScopeFilter(scope) {
+      scopeFilter = scope;
+      const isToday = scope === 'today';
+      document.getElementById('filterTodayBtn').className = isToday
+        ? 'py-1 rounded-md font-medium bg-slate-800 text-white transition-colors'
+        : 'py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 transition-colors';
+      document.getElementById('filterAllBtn').className = !isToday
+        ? 'py-1 rounded-md font-medium bg-slate-800 text-white transition-colors'
+        : 'py-1 rounded-md font-medium text-slate-400 hover:text-slate-200 transition-colors';
+      refreshAll();
+    }
+
+    function renderSidebarList() {
+      const box = document.getElementById('listContainer');
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      const allNonExpired = seriesCNotams.filter(n => getNotamStatus(n).code !== 'expired');
+      const activeTodayCount = allNonExpired.filter(isNotamActiveToday).length;
+      const ratioText = `(${activeTodayCount} / ${allNonExpired.length})`;
+
+      document.getElementById('notamRatio').textContent = ratioText;
+      document.getElementById('mobileBadgeCount').textContent = ratioText;
+
+      const items = getVisibleNotams().filter(n => !q || `${n.notamNo} ${n.title} ${n.rawText}`.toLowerCase().includes(q));
+      if (!items.length) {
+        box.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">${scopeFilter === 'today' ? 'No Series-C NOTAMs active today' : 'No Series-C NOTAMs'}</div>`;
+        return;
+      }
+
+      box.innerHTML = items.map(n => {
+        const st = getNotamStatus(n);
+        return `
+          <div onclick="focusNotam('${n.id}')" class="bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 hover:border-blue-500/40 rounded-lg p-2.5 cursor-pointer transition-colors">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${st.dot} shrink-0"></span>
+                <span class="font-mono text-xs font-semibold text-blue-300">${esc(n.notamNo)}</span>
+              </div>
+              <span class="font-mono text-[10.5px] text-sky-300">${esc(n.upperLimit)}</span>
+            </div>
+            <div class="mt-1 text-xs text-slate-200 line-clamp-2 leading-snug">${esc(n.title)}</div>
+            <div class="mt-1 font-mono text-[10px] text-slate-500 truncate">${esc(n.schedule)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleMobileSidebar(force) {
+      const el = document.getElementById('sidebar');
+      const open = typeof force === 'boolean' ? force : el.classList.contains('-translate-x-full');
+      el.classList.toggle('-translate-x-full', !open);
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg, tone = 'emerald') {
+      const tones = {
+        emerald: 'border-emerald-500/50 text-emerald-200',
+        amber: 'border-amber-500/50 text-amber-200',
+        red: 'border-rose-500/50 text-rose-200'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto bg-slate-950/95 border ${tones[tone] || tones.emerald} px-3 py-2 rounded-lg shadow-xl text-xs transition-opacity duration-300`;
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    function updateClock() {
+      const hkt = getNowHKT();
+      document.getElementById('hktClock').textContent = `${hkt.hhmm} HKT`;
+      document.getElementById('todayDateLabel').textContent = `${hkt.dateStr} HKT`;
+    }
+
+    function refreshAll() {
+      renderNotamsOnMap();
+      renderSidebarList();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      initMap();
+      updateClock();
+      refreshAll();
+      fetchSeriesCNotams();
+
+      setInterval(updateClock, 15000);
+      setInterval(refreshAll, 60000);
+    });
   </script>
 </body>
 </html>
