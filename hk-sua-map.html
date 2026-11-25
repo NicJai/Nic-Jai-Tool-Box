@@ -1038,10 +1038,10 @@
 
         const pin = L.marker([n.lat, n.lng], {
           icon: L.divIcon({
-            html: `<span class="px-1.5 py-0.5 rounded bg-slate-950/90 border border-blue-400/70 text-[9.5px] font-mono text-blue-200 shadow whitespace-nowrap">${esc(n.notamNo)}</span>`,
+            html: `<span class="block w-2.5 h-2.5 rounded-full bg-blue-400 border border-slate-950 shadow"></span>`,
             className: '',
-            iconSize: [56, 16],
-            iconAnchor: [28, 8]
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
           })
         }).addTo(notamLayer);
 
