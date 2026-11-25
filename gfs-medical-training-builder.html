@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scenario Prompt Builder — Medical Training Console</title>
+  <style>
+    :root {
+      --bg-base: #e2e8f0;
+      --bg-panel: #f8fafc;
+      --bg-card: #ffffff;
+      --border-subtle: #cbd5e1;
+      --border-mid: #94a3b8;
+      --text-primary: #0f172a;
+      --text-secondary: #1e293b;
+      --text-muted: #475569;
+      --cyan-bright: #0369a1;
+      --cyan-bg: #e0f2fe;
+      --cyan-border: #0284c7;
+      --emerald: #059669;
+      --emerald-bright: #047857;
+      --emerald-bg: #d1fae5;
+      --emerald-border: #10b981;
+      --amber-bright: #b45309;
+      --amber-bg: #fef3c7;
+      --amber-border: #f59e0b;
+      --red: #dc2626;
+      --red-bright: #991b1b;
+      --red-bg: #fee2e2;
+      --red-border: #ef4444;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang HK", "Microsoft JhengHei", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1.5px solid var(--border-mid);
+      background: #ffffff;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      transition: background-color 0.13s ease, border-color 0.13s ease, transform 0.08s ease;
+    }
+
+    button:active {
+      transform: scale(0.985);
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: #ffffff;
+      border-bottom: 2px solid var(--border-subtle);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge-title {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .subtitle-pill {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan-bright);
+      background: var(--cyan-bg);
+      border: 1px solid var(--cyan-border);
+      padding: 5px 10px;
+      border-radius: 999px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 40px;
+      padding: 0 13px;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .btn:hover {
+      background: var(--bg-panel);
+    }
+
+    .btn-primary {
+      background: var(--emerald);
+      border-color: var(--emerald-bright);
+      color: #ffffff;
+      font-size: 14px;
+      padding: 0 18px;
+    }
+
+    .btn-primary:hover {
+      background: var(--emerald-bright);
+    }
+
+    .btn-cyan {
+      background: var(--cyan-bg);
+      border-color: var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .btn-danger {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-bright);
+    }
+
+    /* Main Split Layout */
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(420px, 58%) minmax(340px, 42%);
+      height: calc(100vh - 64px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 960px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    .form-pane {
+      overflow-y: auto;
+      padding: 14px 16px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border-right: 2px solid var(--border-subtle);
+    }
+
+    .output-pane {
+      background: var(--bg-panel);
+      overflow-y: auto;
+      padding: 14px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    @media (max-width: 960px) {
+      .form-pane {
+        border-right: none;
+        border-bottom: 2px solid var(--border-mid);
+      }
+    }
+
+    /* Form Cards */
+    .card {
+      background: #ffffff;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-bottom: 1.5px solid var(--bg-panel);
+      padding-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--cyan-bright);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .req-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--red-bg);
+      color: var(--red-bright);
+      border: 1px solid var(--red-border);
+    }
+
+    .opt-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field label {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .field input[type="text"],
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border-mid);
+      background: var(--bg-panel);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: var(--cyan-border);
+      background: #ffffff;
+    }
+
+    .field textarea {
+      min-height: 64px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .mini-fill-btn {
+      font-size: 11px;
+      padding: 2px 8px;
+      min-height: 24px;
+      border-radius: 5px;
+      background: var(--cyan-bg);
+      border: 1px solid var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    /* Vitals Sub-blocks */
+    .vitals-block {
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .vitals-block.det {
+      background: #fff8f8;
+      border-color: var(--red-border);
+    }
+
+    .vitals-block.post {
+      background: #f4fbf7;
+      border-color: var(--emerald-border);
+    }
+
+    .vb-title {
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* Time Critical Chips */
+    .tc-chip-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    @media (max-width: 600px) {
+      .tc-chip-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tc-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border-mid);
+      background: var(--bg-panel);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+      min-height: 42px;
+    }
+
+    .tc-chip.active {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-bright);
+    }
+
+    .tc-chip-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border-strong);
+      background: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    .tc-chip.active .tc-chip-dot {
+      background: var(--red);
+      border-color: var(--red-bright);
+      color: #ffffff;
+    }
+
+    .custom-tc-row {
+      display: grid;
+      grid-template-columns: 150px 1fr 40px;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Output Pane */
+    .output-card {
+      background: #ffffff;
+      border: 2px solid var(--cyan-border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    }
+
+    .prompt-box {
+      width: 100%;
+      flex: 1;
+      min-height: 360px;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.55;
+      border: 1.5px solid #334155;
+      resize: vertical;
+    }
+
+    .mode-selector {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .mode-btn {
+      padding: 9px 10px;
+      font-size: 12.5px;
+      text-align: center;
+      background: var(--bg-panel);
+    }
+
+    .mode-btn.active {
+      background: var(--cyan-bg);
+      border-color: var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .how-to-box {
+      background: var(--amber-bg);
+      border: 1.5px solid var(--amber-border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--amber-bright);
+      line-height: 1.45;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-size: 13.5px;
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 90;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="badge-title">Scenario Prompt Builder</span>
+      <span class="subtitle-pill">GFS OM165 · Medical Training Console Helper</span>
+    </div>
+    <div class="topbar-actions">
+      <button type="button" id="btnLoadSample" class="btn btn-cyan">Load Sample</button>
+      <button type="button" id="btnClearForm" class="btn btn-danger">Clear Form</button>
+      <button type="button" id="btnCopyTop" class="btn btn-primary">📋 Copy Prompt</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- LEFT: GUIDED INPUT FORM -->
+    <main class="form-pane" id="formPane">
+      <!-- 1. BASIC SCENARIO INFO -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">1. Basic Info &amp; Mechanism</span>
+          <span class="req-tag">Required</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Scenario Number &amp; Title</label>
+            <input type="text" id="f_title" placeholder="e.g., Scenario 7 – Penetrating Chest Trauma" />
+          </div>
+          <div class="field">
+            <label>Setting &amp; Available Resources</label>
+            <input type="text" id="f_setting" placeholder="e.g., Hiking trail / vessel deck, 1 patient, 1 bystander available" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Mechanism &amp; Chief Complaint</label>
+            <textarea id="f_mechanism" placeholder="e.g., Fell ~2m from platform onto left chest; complains of severe L chest pain and SOB."></textarea>
+          </div>
+          <div class="field">
+            <label>Actual Injuries / Diagnosis</label>
+            <textarea id="f_injuries" placeholder="e.g., Left rib fractures, open pneumothorax progressing to tension pneumothorax, shock."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. VITALS -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">2. Vitals Progression (Initial / Deteriorated / Post-Treatment)</span>
+          <span class="req-tag">Required</span>
+        </div>
+
+        <!-- Initial Vitals -->
+        <div class="vitals-block">
+          <div class="vb-title">
+            <span>A. Initial Vitals</span>
+            <input type="text" id="v_init_stage" value="Initial Assessment" style="width: 210px; padding: 4px 8px; border: 1px solid var(--border-mid); border-radius: 6px; font-size: 12px; font-weight: 700;" placeholder="Stage label (e.g., Initial · Shock)" />
+          </div>
+          <div class="grid-4">
+            <div class="field"><label>BP</label><input type="text" id="v_init_bp" placeholder="96/60 mmHg" /></div>
+            <div class="field"><label>HR</label><input type="text" id="v_init_hr" placeholder="122/min (weak)" /></div>
+            <div class="field"><label>RR</label><input type="text" id="v_init_rr" placeholder="28/min (shallow)" /></div>
+            <div class="field"><label>SpO2</label><input type="text" id="v_init_spo2" placeholder="90% (Room Air)" /></div>
+          </div>
+          <div class="grid-3">
+            <div class="field"><label>LOC / GCS</label><input type="text" id="v_init_gcs" placeholder="GCS 15 [4/5/6] · Alert" /></div>
+            <div class="field"><label>H'stix (BGL)</label><input type="text" id="v_init_hstix" placeholder="5.2 mmol/L" /></div>
+            <div class="field"><label>Skin &amp; Pupils</label><input type="text" id="v_init_skin" placeholder="Pale, cool, diaphoretic · 3mm PEARL" /></div>
+          </div>
+        </div>
+
+        <!-- Deteriorated Vitals -->
+        <div class="vitals-block det">
+          <div class="vb-title">
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--red-bright);">
+              <input type="checkbox" id="chk_has_det" checked style="width: 17px; height: 17px;" />
+              B. Deteriorated Stage Vitals (If Applicable)
+            </label>
+          </div>
+          <div id="detVitalsFields" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="field">
+              <label>Deterioration Trigger / What Worsens</label>
+              <input type="text" id="v_det_trigger" placeholder="e.g., Progresses to tension pneumothorax on reassessment; GCS drops to 9 with gurgling airway" />
+            </div>
+            <div class="grid-4">
+              <div class="field"><label>BP</label><input type="text" id="v_det_bp" placeholder="80/48 mmHg" /></div>
+              <div class="field"><label>HR</label><input type="text" id="v_det_hr" placeholder="136/min (weak)" /></div>
+              <div class="field"><label>RR</label><input type="text" id="v_det_rr" placeholder="34/min (labored)" /></div>
+              <div class="field"><label>SpO2</label><input type="text" id="v_det_spo2" placeholder="84% (despite O2)" /></div>
+            </div>
+            <div class="grid-3">
+              <div class="field"><label>LOC / GCS</label><input type="text" id="v_det_gcs" placeholder="GCS 9 [2/2/5] · Pain only" /></div>
+              <div class="field"><label>H'stix (BGL)</label><input type="text" id="v_det_hstix" placeholder="5.2 mmol/L" /></div>
+              <div class="field"><label>Skin</label><input type="text" id="v_det_skin" placeholder="Cyanotic, cool, diaphoretic" /></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Post-Treatment Vitals -->
+        <div class="vitals-block post">
+          <div class="vb-title">
+            <span style="color: var(--emerald-bright);">C. Post-Intervention Vitals</span>
+          </div>
+          <div class="grid-4">
+            <div class="field"><label>BP</label><input type="text" id="v_post_bp" placeholder="98/62 mmHg" /></div>
+            <div class="field"><label>HR</label><input type="text" id="v_post_hr" placeholder="112/min (radial)" /></div>
+            <div class="field"><label>RR</label><input type="text" id="v_post_rr" placeholder="22/min (regular)" /></div>
+            <div class="field"><label>SpO2</label><input type="text" id="v_post_spo2" placeholder="96% (15L NRB)" /></div>
+          </div>
+          <div class="grid-3">
+            <div class="field"><label>LOC / GCS</label><input type="text" id="v_post_gcs" placeholder="GCS 14 [4/4/6] · Improving" /></div>
+            <div class="field"><label>H'stix (BGL)</label><input type="text" id="v_post_hstix" placeholder="5.2 mmol/L" /></div>
+            <div class="field"><label>Skin &amp; EtCO2</label><input type="text" id="v_post_skin" placeholder="Pale, warming · EtCO2 35 mmHg" /></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. GFS OM165 ASSESSMENT FINDINGS -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">3. GFS OM165 Assessment Findings</span>
+          <span class="opt-tag">Blank = Auto-fill standard normal</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>
+              <span>X — Catastrophic Hemorrhage</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_x" data-val="No active external hemorrhage visible.">No Major Bleed</button>
+            </label>
+            <textarea id="a_x" placeholder="e.g., Arterial bleeding from R thigh / No obvious external hemorrhage"></textarea>
+          </div>
+          <div class="field">
+            <label>
+              <span>A — Airway &amp; SMR</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_a" data-val="Airway open and clear; SMR not indicated.">Clear / No SMR</button>
+            </label>
+            <textarea id="a_a" placeholder="e.g., Airway open initially; delegate manual SMR to bystander; gurgling on deterioration"></textarea>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>
+              <span>B — Breathing</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_b" data-val="Spontaneous regular breathing, clear bilateral breath sounds.">Normal Breathing</button>
+            </label>
+            <textarea id="a_b" placeholder="e.g., Rapid shallow breathing (28/min), reduced L chest rise, diminished L breath sounds"></textarea>
+          </div>
+          <div class="field">
+            <label>
+              <span>C — Circulation</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_c" data-val="Strong regular radial pulse, warm dry skin, CRT < 2s.">Normal Circulation</button>
+            </label>
+            <textarea id="a_c" placeholder="e.g., Rapid weak radial pulse (122/min), pale/cool/diaphoretic skin, suspected internal bleed"></textarea>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>
+              <span>D — Disability</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_d" data-val="Alert (GCS 15), pupils 3mm PEARL, H'stix normal.">Normal Neuro</button>
+            </label>
+            <textarea id="a_d" placeholder="e.g., Alert with pain (8/10), pupils 3mm PEARL, H'stix 5.2 mmol/L"></textarea>
+          </div>
+          <div class="field">
+            <label>
+              <span>E — Head, Neck, Chest &amp; Abdomen</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_e_upper" data-val="Head/Neck unremarkable, trachea midline, JVD flat. Chest/Abdomen soft and non-tender.">Upper Body Normal</button>
+            </label>
+            <textarea id="a_e_upper" placeholder="e.g., Head/neck clear, trachea midline; L chest tenderness/crepitus; LUQ tenderness/guarding"></textarea>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>
+              <span>E — Pelvis, Extremities &amp; Posterior</span>
+              <button type="button" class="mini-fill-btn" data-fill="a_e_lower" data-val="Pelvis stable, all extremities intact with good distal PMS, posterior clear.">Lower/Back Normal</button>
+            </label>
+            <textarea id="a_e_lower" placeholder="e.g., Pelvic pain/instability; L thigh deformity (weak distal pulse); posterior clear"></textarea>
+          </div>
+          <div class="field">
+            <label>
+              <span>O — SAMPLE History &amp; Handover</span>
+            </label>
+            <textarea id="a_o" placeholder="S: / A: None / M: Nil / P: Nil / L: 2 hrs ago / E: Mechanism details"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. TIME-CRITICAL INTERVENTIONS & RULES -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">4. Time-Critical Interventions (Red 'TX!') &amp; Clinical Rules</span>
+          <span class="req-tag">Highlighted in Red</span>
+        </div>
+
+        <div class="tc-chip-grid" id="tcPresetsGrid"></div>
+
+        <div class="field" style="margin-top: 4px;">
+          <label>
+            <span>Custom Time-Critical Actions</span>
+            <button type="button" id="btnAddCustomTc" class="mini-fill-btn">+ Add Action</button>
+          </label>
+          <div id="customTcList" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+
+        <div class="field">
+          <label>Special Clinical Rules / Contraindications</label>
+          <textarea id="f_rules" placeholder="e.g., Traction splint contraindicated (suspected pelvic fracture); verify swallow reflex before Glutose 15."></textarea>
+        </div>
+      </section>
+
+      <!-- 5. EXPECTED OUTCOMES -->
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">5. Expected Findings &amp; Learning Outcomes</span>
+          <span class="opt-tag">Shown in Time Log</span>
+        </div>
+
+        <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; cursor: pointer;">
+          <input type="checkbox" id="chk_auto_outcomes" checked style="width: 17px; height: 17px;" />
+          Automatically generate categorized Assessment &amp; Intervention outcomes from the details above
+        </label>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Specific Assessment Outcomes (One per line, optional)</label>
+            <textarea id="f_eo_assess" placeholder="e.g.,&#10;Identify early signs of shock&#10;Recognize diminished L breath sounds and LUQ guarding"></textarea>
+          </div>
+          <div class="field">
+            <label>Specific Intervention Outcomes (One per line, optional)</label>
+            <textarea id="f_eo_interv" placeholder="e.g.,&#10;Apply pelvic binder at greater trochanters&#10;Perform left needle decompression on deterioration"></textarea>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- RIGHT: AUTO-COMPILED PROMPT PREVIEW -->
+    <aside class="output-pane">
+      <div class="how-to-box">
+        How to use: ① Fill in the scenario details on the left → ② Tap "📋 Copy Prompt" below → ③ Paste and send it in chat to add the scenario to your Medical Training Console.
+      </div>
+
+      <div class="output-card">
+        <div class="card-head">
+          <span class="card-title">Compiled Prompt Preview (Ready to Paste)</span>
+        </div>
+
+        <div class="mode-selector">
+          <button type="button" class="mode-btn active" data-mode="console">Mode A: Update HTML Console Directly</button>
+          <button type="button" class="mode-btn" data-mode="json">Mode B: Generate Standalone JSON</button>
+        </div>
+
+        <textarea id="promptOutput" class="prompt-box" readonly></textarea>
+
+        <button type="button" id="btnCopyBottom" class="btn btn-primary" style="min-height: 48px; justify-content: center; font-size: 15px;">
+          📋 Copy Prompt to Clipboard
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const TC_PRESETS = [
+      { id: "tq", step: "X · External Bleed", text: "Apply Tourniquet & mark time (catastrophic limb hemorrhage)" },
+      { id: "smr", step: "A · Airway & SMR", text: "Delegate manual spinal motion restriction (SMR) to bystander" },
+      { id: "suction", step: "Reassess: Airway/LOC", text: "Suction airway & insert airway adjunct (OPA/NPA)" },
+      { id: "o2", step: "B · Breathing & O2", text: "Administer 15L NRB high-flow supplemental oxygen" },
+      { id: "bvm", step: "Reassess: Breathing", text: "Assist ventilations with BVM (10-12/min)" },
+      { id: "seal", step: "Chest Exam", text: "Apply vented occlusive chest seal over open chest wound" },
+      { id: "decomp", step: "Reassess: Tension Pneumo", text: "Perform needle decompression for tension pneumothorax" },
+      { id: "binder", step: "Pelvis & Binder", text: "Apply pelvic binder centered at greater trochanters" },
+      { id: "hstix", step: "D · Disability", text: "Perform capillary H'stix (BGL) check" },
+      { id: "glutose", step: "D · Disability", text: "Confirm swallow safety & administer Glutose 15 (oral glucose)" },
+      { id: "loadgo", step: "Load & Go / Air Cmd", text: "Declare Load & Go and notify Aircraft / Air Command early" },
+      { id: "warm", step: "Posterior & Warmth", text: "Log-roll posterior check & prevent hypothermia (active warming)" }
+    ];
+
+    const state = {
+      selectedPresets: new Set(),
+      customTcs: [],
+      outputMode: "console"
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove("show"), 2600);
+    }
+
+    function copyTextSafe(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch (e) {
+        /* ignore */
+      }
+      document.body.removeChild(ta);
+    }
+
+    function renderTcPresets() {
+      const grid = document.getElementById("tcPresetsGrid");
+      grid.innerHTML = TC_PRESETS.map(p => {
+        const active = state.selectedPresets.has(p.id);
+        return `
+          <button type="button" class="tc-chip ${active ? "active" : ""}" data-preset-id="${p.id}">
+            <span class="tc-chip-dot">${active ? "✓" : ""}</span>
+            <span><strong>[${p.step}]</strong> ${p.text}</span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderCustomTcs() {
+      const wrap = document.getElementById("customTcList");
+      wrap.innerHTML = state.customTcs.map((item, idx) => `
+        <div class="custom-tc-row">
+          <select data-ctc-idx="${idx}" data-ctc-field="step" style="padding: 8px; border-radius: 8px; border: 1.5px solid var(--border-mid); background: var(--bg-panel); font-size: 12.5px; font-weight: 700;">
+            <option value="X · External Bleed" ${item.step === "X · External Bleed" ? "selected" : ""}>X · External Bleed</option>
+            <option value="A · Airway" ${item.step === "A · Airway" ? "selected" : ""}>A · Airway</option>
+            <option value="B · Breathing" ${item.step === "B · Breathing" ? "selected" : ""}>B · Breathing</option>
+            <option value="C · Circulation" ${item.step === "C · Circulation" ? "selected" : ""}>C · Circulation</option>
+            <option value="D · Disability" ${item.step === "D · Disability" ? "selected" : ""}>D · Disability</option>
+            <option value="E · Chest / Abdomen" ${item.step === "E · Chest / Abdomen" ? "selected" : ""}>E · Chest / Abdomen</option>
+            <option value="E · Pelvis / Limbs" ${item.step === "E · Pelvis / Limbs" ? "selected" : ""}>E · Pelvis / Limbs</option>
+            <option value="O · Load & Go / Notify" ${item.step === "O · Load & Go / Notify" ? "selected" : ""}>O · Load & Go / Notify</option>
+            <option value="Reassessment" ${item.step === "Reassessment" ? "selected" : ""}>Reassessment</option>
+          </select>
+          <input type="text" data-ctc-idx="${idx}" data-ctc-field="text" value="${item.text.replace(/"/g, "&quot;")}" placeholder="Enter custom time-critical action..." style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-mid); background: var(--bg-panel); font-size: 13.5px; font-weight: 600;" />
+          <button type="button" class="btn-danger" data-ctc-del="${idx}" style="min-height: 36px; padding: 0;">✕</button>
+        </div>
+      `).join("");
+    }
+
+    function val(id) {
+      const el = document.getElementById(id);
+      return el ? el.value.trim() : "";
+    }
+
+    function generatePrompt() {
+      const title = val("f_title") || "[Untitled Scenario — Please auto-name]";
+      const setting = val("f_setting") || "Prehospital / Helicopter Rescue setting, 1 patient";
+      const mechanism = val("f_mechanism") || "[Auto-generate consistent mechanism from diagnosis]";
+      const injuries = val("f_injuries") || "[Derive clinical diagnosis from findings below]";
+
+      const hasDet = document.getElementById("chk_has_det").checked;
+      const autoEo = document.getElementById("chk_auto_outcomes").checked;
+
+      const selectedTcLines = [];
+      TC_PRESETS.forEach(p => {
+        if (state.selectedPresets.has(p.id)) {
+          selectedTcLines.push(`- [${p.step}] ${p.text}`);
+        }
+      });
+      state.customTcs.forEach(c => {
+        if (c.text.trim()) {
+          selectedTcLines.push(`- [${c.step}] ${c.text.trim()}`);
+        }
+      });
+
+      const modeInstruction = state.outputMode === "console"
+        ? "Please add this new scenario directly into the built-in SCENARIOS list in `itls_instructor_console.html` (keeping all existing scenarios, the exact two-sided iPad layout, live vitals including H'stix, large bullet-point student responses, stay-duration Time Log with categorized Assessment/Intervention outcomes, and blank GFS Form OM165 rubric unchanged)."
+        : "Please generate a standalone, valid `.json` file for this scenario that I can upload directly via the `Scenario JSON` -> `Upload .json File` button in `itls_instructor_console.html` (strictly following the GFS Form OM165 structure, `vitals` object with `initial`/`deteriorated`/`afterInterventions`, `sequenceGroups`, `timeCritical` items, and categorized `expectedOutcomes`).";
+
+      const lines = [
+        "Please create a new training scenario for my **Medical Training Console** (strictly based on **GFS Form No. OM165**).",
+        "",
+        `### Output Requirement`,
+        modeInstruction,
+        "",
+        `### 1. Basic Info & Mechanism`,
+        `- **Title:** ${title}`,
+        `- **Setting & Resources:** ${setting}`,
+        `- **Mechanism & Chief Complaint:** ${mechanism}`,
+        `- **Actual Injuries / Diagnosis:** ${injuries}`,
+        "",
+        `### 2. Vitals Progression`,
+        `- **Initial Vitals (${val("v_init_stage") || "Initial"}):** BP ${val("v_init_bp") || "TBD"} | HR ${val("v_init_hr") || "TBD"} | RR ${val("v_init_rr") || "TBD"} | SpO2 ${val("v_init_spo2") || "TBD"} | LOC/GCS ${val("v_init_gcs") || "TBD"} | H'stix ${val("v_init_hstix") || "Normal"} | Skin/Pupils ${val("v_init_skin") || "TBD"}`
+      ];
+
+      if (hasDet) {
+        lines.push(`- **Deteriorated Stage Trigger:** ${val("v_det_trigger") || "Condition worsens during reassessment if untreated"}`);
+        lines.push(`- **Deteriorated Vitals:** BP ${val("v_det_bp") || "TBD"} | HR ${val("v_det_hr") || "TBD"} | RR ${val("v_det_rr") || "TBD"} | SpO2 ${val("v_det_spo2") || "TBD"} | LOC/GCS ${val("v_det_gcs") || "TBD"} | H'stix ${val("v_det_hstix") || "Unchanged"} | Skin ${val("v_det_skin") || "TBD"}`);
+      } else {
+        lines.push(`- **Deteriorated Stage:** Not required for this scenario.`);
+      }
+
+      lines.push(`- **Post-Intervention Vitals:** BP ${val("v_post_bp") || "Improving"} | HR ${val("v_post_hr") || "Improving"} | RR ${val("v_post_rr") || "Improving"} | SpO2 ${val("v_post_spo2") || "Improving"} | LOC/GCS ${val("v_post_gcs") || "Improving"} | H'stix ${val("v_post_hstix") || "Normal"} | Skin/EtCO2 ${val("v_post_skin") || "Improving"}`);
+
+      lines.push(
+        "",
+        `### 3. GFS OM165 Assessment Findings (Fill standard normal findings for any blank items)`,
+        `- **X (Catastrophic Hemorrhage):** ${val("a_x") || "[Auto-fill standard normal]"}`,
+        `- **A (Airway & SMR):** ${val("a_a") || "[Auto-fill standard normal]"}`,
+        `- **B (Breathing):** ${val("a_b") || "[Auto-fill standard normal]"}`,
+        `- **C (Circulation):** ${val("a_c") || "[Auto-fill standard normal]"}`,
+        `- **D (Disability):** ${val("a_d") || "[Auto-fill standard normal]"}`,
+        `- **E (Head, Neck, Chest, Abdomen):** ${val("a_e_upper") || "[Auto-fill standard normal]"}`,
+        `- **E (Pelvis, Extremities, Posterior):** ${val("a_e_lower") || "[Auto-fill standard normal]"}`,
+        `- **O (SAMPLE History & Handover):** ${val("a_o") || "[Auto-generate consistent SAMPLE & ATMIST handover]"}`,
+        "",
+        `### 4. Time-Critical Interventions (Highlight in Red 'TX!' on Left Panel)`
+      );
+
+      if (selectedTcLines.length > 0) {
+        lines.push(...selectedTcLines);
+      } else {
+        lines.push(`- [Auto-assign appropriate red TX! interventions based on the injuries above]`);
+      }
+
+      if (val("f_rules")) {
+        lines.push(`- **Special Clinical Rules / Contraindications:** ${val("f_rules")}`);
+      }
+
+      lines.push(
+        "",
+        `### 5. Expected Findings & Learning Outcomes (Categorized into Assessment vs. Intervention)`
+      );
+
+      if (autoEo) {
+        lines.push(`- Please automatically generate the full categorized list of **Assessment** and **Intervention** expected outcomes based on the findings and time-critical actions above.`);
+      }
+      if (val("f_eo_assess")) {
+        lines.push(`- **Specific Assessment Outcomes to Include:** ${val("f_eo_assess").replace(/\n+/g, "; ")}`);
+      }
+      if (val("f_eo_interv")) {
+        lines.push(`- **Specific Intervention Outcomes to Include:** ${val("f_eo_interv").replace(/\n+/g, "; ")}`);
+      }
+
+      document.getElementById("promptOutput").value = lines.join("\n");
+    }
+
+    function loadSamplePreset() {
+      document.getElementById("f_title").value = "Scenario 6 – Open to Tension Pneumothorax (Gunshot / Impaled Metal)";
+      document.getElementById("f_setting").value = "Remote mining site / shooting range, 1 patient, 1 first aider on scene";
+      document.getElementById("f_mechanism").value = "Struck in the left anterior chest by a high-velocity metal fragment; sitting against wall, gasping for air.";
+      document.getElementById("f_injuries").value = "Left open pneumothorax progressing to tension pneumothorax, obstructive/hypovolemic shock.";
+
+      document.getElementById("v_init_stage").value = "Initial · Open Pneumothorax";
+      document.getElementById("v_init_bp").value = "88/54 mmHg";
+      document.getElementById("v_init_hr").value = "132/min (thready radial)";
+      document.getElementById("v_init_rr").value = "30/min (rapid/shallow)";
+      document.getElementById("v_init_spo2").value = "88% (Room Air)";
+      document.getElementById("v_init_gcs").value = "GCS 15 [4/5/6] · Alert/anxious";
+      document.getElementById("v_init_hstix").value = "4.8 mmol/L";
+      document.getElementById("v_init_skin").value = "Pale, cool, diaphoretic · 3mm PEARL";
+
+      document.getElementById("chk_has_det").checked = true;
+      document.getElementById("detVitalsFields").style.display = "flex";
+      document.getElementById("v_det_trigger").value = "Reassessment: Chest seal occluded / air trapping -> develops into Left Tension Pneumothorax";
+      document.getElementById("v_det_bp").value = "76/44 mmHg";
+      document.getElementById("v_det_hr").value = "142/min (no radial, weak carotid)";
+      document.getElementById("v_det_rr").value = "36/min (labored)";
+      document.getElementById("v_det_spo2").value = "81% (despite O2)";
+      document.getElementById("v_det_gcs").value = "GCS 13 [4/4/5] · Confused";
+      document.getElementById("v_det_hstix").value = "4.8 mmol/L";
+      document.getElementById("v_det_skin").value = "Ashen, cold, diaphoretic";
+
+      document.getElementById("v_post_bp").value = "98/60 mmHg";
+      document.getElementById("v_post_hr").value = "112/min (radial returned)";
+      document.getElementById("v_post_rr").value = "24/min (improved)";
+      document.getElementById("v_post_spo2").value = "95% (15L NRB)";
+      document.getElementById("v_post_gcs").value = "GCS 14 [4/4/6] · Calmer";
+      document.getElementById("v_post_hstix").value = "4.8 mmol/L";
+      document.getElementById("v_post_skin").value = "Pale, warming · EtCO2 28 mmHg";
+
+      document.getElementById("a_x").value = "No massive limb hemorrhage; bubbling blood from left pectoral puncture wound.";
+      document.getElementById("a_a").value = "Airway open and clear; SMR not required.";
+      document.getElementById("a_b").value = "Rapid shallow breathing (30/min), sucking chest wound left anterior pectoral area, diminished breath sounds on left.";
+      document.getElementById("a_c").value = "Thready rapid radial pulse (132/min), pale, cool, diaphoretic skin.";
+      document.getElementById("a_d").value = "Alert initially (GCS 15), pupils 3mm reactive, severe left chest pain 9/10.";
+      document.getElementById("a_e_upper").value = "Neck: trachea midline, JVD flat initially (JVD distended during deterioration). Chest: left anterior penetrating wound, diminished/absent L breath sounds.";
+      document.getElementById("a_e_lower").value = "Pelvis stable, limbs intact with normal PMS. Posterior: exit wound on left scapula (must check on log-roll/transfer!).";
+      document.getElementById("a_o").value = "S: Severe L chest pain & SOB / A: None / M: Rosuvastatin / P: High cholesterol / L: Breakfast 2h ago / E: Struck by flying metal fragment";
+
+      state.selectedPresets = new Set(["o2", "seal", "decomp", "loadgo"]);
+      state.customTcs = [
+        { step: "E · Pelvis / Limbs", text: "Check posterior chest & apply occlusive dressing to left scapular exit wound" }
+      ];
+      document.getElementById("f_rules").value = "Must check posterior chest to find the scapular exit wound; if tension pneumothorax develops, burp chest seal and perform left needle decompression.";
+
+      renderTcPresets();
+      renderCustomTcs();
+      generatePrompt();
+      showToast("Sample preset loaded");
+    }
+
+    function clearForm() {
+      document.querySelectorAll("#formPane input[type='text'], #formPane textarea").forEach(el => {
+        if (el.id === "v_init_stage") {
+          el.value = "Initial Assessment";
+        } else {
+          el.value = "";
+        }
+      });
+      state.selectedPresets.clear();
+      state.customTcs = [];
+      renderTcPresets();
+      renderCustomTcs();
+      generatePrompt();
+      showToast("All fields cleared");
+    }
+
+    // Event Listeners
+    document.getElementById("formPane").addEventListener("input", () => generatePrompt());
+    document.getElementById("formPane").addEventListener("change", e => {
+      if (e.target.id === "chk_has_det") {
+        document.getElementById("detVitalsFields").style.display = e.target.checked ? "flex" : "none";
+      }
+      if (e.target.hasAttribute("data-ctc-idx")) {
+        const idx = Number(e.target.getAttribute("data-ctc-idx"));
+        const field = e.target.getAttribute("data-ctc-field");
+        if (state.customTcs[idx]) {
+          state.customTcs[idx][field] = e.target.value;
+        }
+      }
+      generatePrompt();
+    });
+
+    document.getElementById("tcPresetsGrid").addEventListener("click", e => {
+      const btn = e.target.closest("[data-preset-id]");
+      if (!btn) return;
+      const pid = btn.getAttribute("data-preset-id");
+      if (state.selectedPresets.has(pid)) {
+        state.selectedPresets.delete(pid);
+      } else {
+        state.selectedPresets.add(pid);
+      }
+      renderTcPresets();
+      generatePrompt();
+    });
+
+    document.getElementById("btnAddCustomTc").addEventListener("click", () => {
+      state.customTcs.push({ step: "D · Disability", text: "" });
+      renderCustomTcs();
+      generatePrompt();
+    });
+
+    document.getElementById("customTcList").addEventListener("click", e => {
+      const del = e.target.closest("[data-ctc-del]");
+      if (!del) return;
+      const idx = Number(del.getAttribute("data-ctc-del"));
+      state.customTcs.splice(idx, 1);
+      renderCustomTcs();
+      generatePrompt();
+    });
+
+    document.getElementById("customTcList").addEventListener("input", e => {
+      if (e.target.hasAttribute("data-ctc-idx")) {
+        const idx = Number(e.target.getAttribute("data-ctc-idx"));
+        const field = e.target.getAttribute("data-ctc-field");
+        if (state.customTcs[idx]) {
+          state.customTcs[idx][field] = e.target.value;
+          generatePrompt();
+        }
+      }
+    });
+
+    document.getElementById("formPane").addEventListener("click", e => {
+      const fillBtn = e.target.closest("[data-fill]");
+      if (!fillBtn) return;
+      const targetEl = document.getElementById(fillBtn.getAttribute("data-fill"));
+      if (targetEl) {
+        targetEl.value = fillBtn.getAttribute("data-val");
+        generatePrompt();
+      }
+    });
+
+    document.querySelectorAll("[data-mode]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.outputMode = btn.getAttribute("data-mode");
+        document.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("active", b === btn));
+        generatePrompt();
+      });
+    });
+
+    document.getElementById("btnLoadSample").addEventListener("click", loadSamplePreset);
+    document.getElementById("btnClearForm").addEventListener("click", clearForm);
+
+    function handleCopyPrompt() {
+      copyTextSafe(document.getElementById("promptOutput").value);
+      showToast("Prompt copied! Paste it in chat to generate your scenario.");
+    }
+
+    document.getElementById("btnCopyTop").addEventListener("click", handleCopyPrompt);
+    document.getElementById("btnCopyBottom").addEventListener("click", handleCopyPrompt);
+
+    // Init
+    renderTcPresets();
+    renderCustomTcs();
+    generatePrompt();
+  </script>
+</body>
+</html>

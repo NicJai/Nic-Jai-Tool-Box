@@ -1,0 +1,3683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Training Console — Scenario 4: Blunt Trauma</title>
+  <!--
+    Medical Training Console (Offline-First Single File — iPad Optimized)
+    - Strictly based on Government Flying Service (GFS) Form No. OM165.
+    - High-Contrast Daylight Palette for glare-free iPad readability.
+    - Left Pane: Always-readable Live Vitals + Simplified Sequential GFS OM165 Buttons.
+    - Right Pane: Extra-Large Point-Form Student Response -> Time-Critical Action (below readout)
+      -> Complete Training -> Chronological Time Log (Categorized Outcomes + Stay Duration) -> GFS OM165 Rubric.
+    - Export PDF: 2-Page Print Layout (Front Page = GFS OM165 Rubric, Back Page = Time Log).
+  -->
+  <style>
+    /* =========================================================================
+       1. DESIGN TOKENS — HIGH-CONTRAST IPAD DAYLIGHT CLINICAL PALETTE
+       ========================================================================= */
+    :root {
+      --bg-base: #e2e8f0;
+      --bg-panel: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f1f5f9;
+      --bg-input: #f1f5f9;
+
+      --border-subtle: #cbd5e1;
+      --border-mid: #94a3b8;
+      --border-strong: #64748b;
+
+      --text-primary: #0f172a;
+      --text-secondary: #1e293b;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+
+      --cyan-bright: #0369a1;
+      --cyan-bg: #e0f2fe;
+      --cyan-border: #0284c7;
+
+      --emerald: #059669;
+      --emerald-bright: #047857;
+      --emerald-bg: #d1fae5;
+      --emerald-border: #10b981;
+
+      --amber-bright: #b45309;
+      --amber-bg: #fef3c7;
+      --amber-border: #f59e0b;
+
+      --red: #dc2626;
+      --red-bright: #991b1b;
+      --red-bg: #fee2e2;
+      --red-border: #ef4444;
+
+      --radius-sm: 10px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --radius-pill: 9999px;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.45;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: none;
+      transition: background-color 0.13s ease, border-color 0.13s ease, transform 0.08s ease;
+    }
+
+    button:active {
+      transform: scale(0.985);
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--cyan-bright);
+      outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-base);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-mid);
+      border-radius: 99px;
+    }
+
+    /* =========================================================================
+       2. TOP COMMAND BAR (IPAD TOUCH-FRIENDLY)
+       ========================================================================= */
+    .command-bar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      padding: 10px 14px;
+      background: #ffffff;
+      border-bottom: 2px solid var(--border-subtle);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .case-select {
+      min-height: 44px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 700;
+      flex: 1;
+      min-width: 210px;
+      max-width: 420px;
+    }
+
+    .utility-cluster {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .timer-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      border-radius: var(--radius-md);
+      padding: 3px 6px 3px 12px;
+    }
+
+    .timer-display {
+      font-family: var(--font-mono);
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--text-primary);
+      min-width: 62px;
+      text-align: center;
+    }
+
+    .timer-display.running {
+      color: var(--cyan-bright);
+    }
+
+    .btn {
+      min-height: 42px;
+      padding: 0 13px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 700;
+      background: #ffffff;
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-strong);
+    }
+
+    .btn.start {
+      background: var(--emerald-bg);
+      border-color: var(--emerald-border);
+      color: var(--emerald-bright);
+    }
+
+    .btn.pause {
+      background: var(--amber-bg);
+      border-color: var(--amber-border);
+      color: var(--amber-bright);
+    }
+
+    .btn.danger {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-bright);
+    }
+
+    .btn.active-cyan {
+      background: var(--cyan-bg);
+      border-color: var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .btn.export {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #ffffff;
+    }
+
+    /* =========================================================================
+       3. TWO-SIDED SPLIT WORKSPACE
+       ========================================================================= */
+    .split-workspace {
+      display: grid;
+      grid-template-columns: minmax(350px, 43%) minmax(420px, 57%);
+      height: calc(100vh - 66px);
+      width: 100%;
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      .split-workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    .left-pane {
+      background: var(--bg-panel);
+      border-right: 2px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      .left-pane {
+        height: auto;
+        border-right: none;
+        border-bottom: 2px solid var(--border-mid);
+      }
+    }
+
+    .right-pane {
+      background: var(--bg-base);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      padding: 14px 16px 48px;
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .right-pane {
+        height: auto;
+        overflow-y: visible;
+      }
+    }
+
+    /* =========================================================================
+       4. LEFT PANE: PINNED LIVE VITALS + COMPACT SEQUENTIAL BUTTONS (NO SCROLL)
+       ========================================================================= */
+    .vitals-dock {
+      flex-shrink: 0;
+      background: #ffffff;
+      border-bottom: 2px solid var(--border-subtle);
+      padding: 7px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .vitals-dock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .stage-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 3px 9px;
+      border-radius: var(--radius-pill);
+      background: var(--amber-bg);
+      border: 1.5px solid var(--amber-border);
+      color: var(--amber-bright);
+    }
+
+    .stage-label.crit {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-bright);
+    }
+
+    .stage-label.treated {
+      background: var(--emerald-bg);
+      border-color: var(--emerald-border);
+      color: var(--emerald-bright);
+    }
+
+    .stage-switch-group {
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .stage-btn {
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 7px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .stage-btn.active-init {
+      background: var(--cyan-bg);
+      border-color: var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .stage-btn.active-det {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-bright);
+    }
+
+    .vitals-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .vitals-grid-bottom {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .v-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 7px;
+      padding: 4px 7px;
+    }
+
+    .v-lbl {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      line-height: 1.1;
+    }
+
+    .v-val {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-top: 1px;
+      line-height: 1.2;
+    }
+
+    .v-val.sm {
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .c-emerald { color: var(--emerald-bright); }
+    .c-amber { color: var(--amber-bright); }
+    .c-red { color: var(--red-bright); }
+
+    .flow-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 7px 10px 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      gap: 6px 8px;
+    }
+
+    .flow-phase-block {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .flow-phase-block.span-full {
+      grid-column: 1 / -1;
+    }
+
+    .flow-phase-block.span-1 {
+      grid-column: span 1;
+    }
+
+    @media (max-width: 480px) {
+      .flow-phase-block.span-1 {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .flow-phase-title {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--cyan-bright);
+      padding: 0 2px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px;
+    }
+
+    .item-btn-grid.cols-1 {
+      grid-template-columns: 1fr;
+    }
+
+    .item-btn-grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (max-width: 520px) {
+      .item-btn-grid,
+      .item-btn-grid.cols-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* Compact Sequential Assessment + Time-Critical Button */
+    .flow-item-btn {
+      min-height: 38px;
+      padding: 5px 8px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1.5px solid var(--border-subtle);
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 5px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    .flow-item-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-mid);
+    }
+
+    /* Red Highlight when Item Includes an Uncompleted Time-Critical Intervention */
+    .flow-item-btn.time-critical {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+    }
+
+    .flow-item-btn.time-critical:hover {
+      background: #fecaca;
+    }
+
+    .flow-item-btn.time-critical .fib-name {
+      color: var(--red-bright);
+    }
+
+    /* Resolved Time-Critical Intervention */
+    .flow-item-btn.tc-done {
+      background: var(--emerald-bg);
+      border-color: var(--emerald-border);
+    }
+
+    .flow-item-btn.selected {
+      box-shadow: 0 0 0 2px var(--cyan-border);
+      border-color: var(--cyan-border);
+    }
+
+    .fib-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.18;
+    }
+
+    .fib-badge {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .fib-badge.done {
+      background: #ffffff;
+      border-color: var(--emerald-border);
+      color: var(--emerald-bright);
+    }
+
+    .fib-badge.active-now {
+      background: var(--cyan-bg);
+      border-color: var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .fib-badge.crit {
+      background: var(--red);
+      border-color: var(--red-bright);
+      color: #ffffff;
+    }
+
+    /* =========================================================================
+       5. RIGHT PANE: SELECTED ITEM DETAIL CARD (READOUT FIRST -> TC BELOW)
+       ========================================================================= */
+    .detail-spotlight {
+      background: #ffffff;
+      border: 2px solid var(--cyan-border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    }
+
+    .ds-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ds-kicker {
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--cyan-bright);
+    }
+
+    .ds-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-top: 2px;
+    }
+
+    .ds-readout {
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ds-readout-lbl {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+    }
+
+    .ds-readout-list {
+      margin: 0;
+      padding-left: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: clamp(24px, 2.6vw, 32px);
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.38;
+    }
+
+    .ds-readout-list li::marker {
+      color: var(--cyan-bright);
+    }
+
+    .ds-readout-detail {
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border-mid);
+    }
+
+    /* Time-Critical Action Box Placed Below Quick Student Response */
+    .tc-box {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: var(--red-bg);
+      border: 1.5px solid var(--red-border);
+      border-left: 5px solid var(--red);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tc-box.done {
+      background: var(--emerald-bg);
+      border-color: var(--emerald-border);
+      border-left-color: var(--emerald);
+    }
+
+    .tc-box-text {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--red-bright);
+      flex: 1;
+      min-width: 210px;
+      line-height: 1.35;
+    }
+
+    .tc-box.done .tc-box-text {
+      color: var(--emerald-bright);
+    }
+
+    .tc-action-btn {
+      min-height: 44px;
+      padding: 0 15px;
+      border-radius: var(--radius-sm);
+      background: var(--red);
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 800;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(185, 28, 28, 0.25);
+    }
+
+    .tc-action-btn.done {
+      background: #ffffff;
+      border: 1.5px solid var(--emerald-border);
+      color: var(--emerald-bright);
+      box-shadow: none;
+    }
+
+    /* =========================================================================
+       6. RIGHT PANE: CHRONOLOGICAL TIME LOG (STAY DURATION + INTERVENTIONS)
+       ========================================================================= */
+    .panel-card {
+      background: #ffffff;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .panel-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--cyan-bright);
+    }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 290px;
+      overflow-y: auto;
+    }
+
+    .log-list.expanded {
+      max-height: none;
+    }
+
+    .log-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 11px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      font-size: 13.5px;
+      flex-wrap: wrap;
+    }
+
+    .log-time {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--cyan-bright);
+      flex-shrink: 0;
+    }
+
+    .log-dur {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: #ffffff;
+      border: 1px solid var(--border-mid);
+      color: var(--text-primary);
+      flex-shrink: 0;
+    }
+
+    .log-badge {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 5px;
+      flex-shrink: 0;
+    }
+
+    .log-badge.assess {
+      background: var(--cyan-bg);
+      border: 1px solid var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .log-badge.interv {
+      background: var(--emerald-bg);
+      border: 1px solid var(--emerald-border);
+      color: var(--emerald-bright);
+    }
+
+    .log-text {
+      color: var(--text-primary);
+      font-weight: 700;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    /* Expected Findings & Learning Outcomes Summary inside Time Log */
+    .outcomes-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-subtle);
+    }
+
+    .outcomes-banner {
+      padding: 10px 13px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .outcomes-banner.all-ok {
+      background: var(--emerald-bg);
+      border: 1.5px solid var(--emerald-border);
+      color: var(--emerald-bright);
+    }
+
+    .outcomes-banner.partial {
+      background: var(--amber-bg);
+      border: 1.5px solid var(--amber-border);
+      color: var(--amber-bright);
+    }
+
+    .outcomes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .outcome-group-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .outcome-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--cyan-bright);
+      padding: 4px 6px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+    }
+
+    @media (max-width: 680px) {
+      .outcomes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .outcome-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      text-align: left;
+      font-size: 12.5px;
+    }
+
+    .outcome-row:hover {
+      border-color: var(--border-strong);
+    }
+
+    .outcome-row.achieved {
+      border-left: 4px solid var(--emerald);
+    }
+
+    .outcome-row.missed {
+      border-left: 4px solid var(--red);
+      background: #fffafa;
+    }
+
+    .outcome-label {
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+      flex: 1;
+    }
+
+    .outcome-pill {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .outcome-pill.achieved {
+      background: var(--emerald-bg);
+      color: var(--emerald-bright);
+      border: 1px solid var(--emerald-border);
+    }
+
+    .outcome-pill.missed {
+      background: var(--red-bg);
+      color: var(--red-bright);
+      border: 1px solid var(--red-border);
+    }
+
+    .complete-bar {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-complete-run {
+      min-height: 48px;
+      padding: 0 22px;
+      border-radius: var(--radius-md);
+      background: var(--emerald);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-complete-run:hover {
+      background: var(--emerald-bright);
+    }
+
+    /* =========================================================================
+       7. END-OF-TRAINING GFS FORM OM165 GRADING RUBRIC
+       ========================================================================= */
+    .rubric-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-top: 2px solid var(--emerald-border);
+      padding-top: 14px;
+    }
+
+    .meta-inputs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    @media (max-width: 540px) {
+      .meta-inputs {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .gs-input {
+      min-height: 42px;
+      padding: 0 11px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .rubric-section {
+      background: #ffffff;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .rubric-sec-head {
+      padding: 9px 13px;
+      background: #f1f5f9;
+      border-bottom: 1.5px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .rubric-sec-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--cyan-bright);
+      letter-spacing: 0.02em;
+    }
+
+    .rubric-row {
+      padding: 9px 13px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .rubric-row:last-child {
+      border-bottom: none;
+    }
+
+    .rubric-item-text {
+      flex: 1;
+      min-width: 210px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .scale-btns {
+      display: inline-flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .scale-btn {
+      min-height: 38px;
+      padding: 0 11px;
+      border-radius: 7px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .scale-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .scale-btn.sel-exc {
+      background: var(--emerald-bg);
+      border-color: var(--emerald-border);
+      color: var(--emerald-bright);
+    }
+
+    .scale-btn.sel-good {
+      background: var(--cyan-bg);
+      border-color: var(--cyan-border);
+      color: var(--cyan-bright);
+    }
+
+    .scale-btn.sel-pass {
+      background: var(--amber-bg);
+      border-color: var(--amber-border);
+      color: var(--amber-bright);
+    }
+
+    .scale-btn.sel-fail {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-bright);
+    }
+
+    .notes-area {
+      width: 100%;
+      min-height: 82px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-primary);
+      font-size: 14px;
+      resize: vertical;
+    }
+
+    /* =========================================================================
+       8. MODAL & TOAST
+       ========================================================================= */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 60;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 680px;
+      max-height: 90vh;
+      background: #ffffff;
+      border: 1.5px solid var(--border-mid);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-head {
+      padding: 13px 16px;
+      border-bottom: 1.5px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      padding: 14px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .json-editor {
+      width: 100%;
+      min-height: 240px;
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-mid);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      resize: vertical;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 90;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* =========================================================================
+       9. TWO-PAGE PDF PRINT STYLESHEET
+          FRONT PAGE (PAGE 1): GFS FORM OM165 GRADING RUBRIC
+          BACK PAGE  (PAGE 2): CHRONOLOGICAL TIME LOG & EXPECTED OUTCOMES
+       ========================================================================= */
+    .print-only-doc {
+      display: none;
+    }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm;
+      }
+
+      html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        height: auto !important;
+        overflow: visible !important;
+        font-size: 10pt !important;
+      }
+
+      .command-bar,
+      .split-workspace,
+      .modal-backdrop,
+      .toast {
+        display: none !important;
+      }
+
+      .print-only-doc {
+        display: block !important;
+        width: 100%;
+        background: #ffffff;
+        color: #0f172a;
+      }
+
+      .pdf-page-1 {
+        page-break-after: always;
+        break-after: page;
+      }
+
+      .pdf-page-2 {
+        page-break-before: always;
+        break-before: page;
+      }
+
+      .pdf-header {
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+
+      .pdf-title {
+        font-size: 13pt;
+        font-weight: 800;
+        color: #0f172a;
+      }
+
+      .pdf-sub {
+        font-size: 9pt;
+        color: #334155;
+        font-weight: 600;
+      }
+
+      .pdf-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        margin-bottom: 8px;
+        border: 1px solid #94a3b8;
+        padding: 6px 8px;
+        border-radius: 4px;
+        font-size: 9pt;
+      }
+
+      .pdf-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8px;
+        font-size: 8.5pt;
+      }
+
+      .pdf-table th,
+      .pdf-table td {
+        border: 1px solid #94a3b8;
+        padding: 3.5px 6px;
+        text-align: left;
+      }
+
+      .pdf-table th {
+        background: #e2e8f0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-weight: 800;
+      }
+
+      .pdf-table td.center,
+      .pdf-table th.center {
+        text-align: center;
+        width: 54px;
+      }
+
+      .pdf-sec-row td {
+        background: #f1f5f9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-weight: 800;
+        color: #0f172a;
+      }
+
+      .pdf-footer-box {
+        border: 1px solid #94a3b8;
+        padding: 7px 9px;
+        border-radius: 4px;
+        font-size: 9pt;
+      }
+
+      .pdf-outcome-summary {
+        border: 1.5px solid #0f172a;
+        background: #f8fafc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        padding: 6px 8px;
+        border-radius: 4px;
+        font-size: 9pt;
+        font-weight: 800;
+        margin-bottom: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- =======================================================================
+       TOP COMMAND BAR
+       ======================================================================= -->
+  <header class="command-bar">
+    <div class="brand-cluster">
+      <span class="brand-tag">Medical Training Console</span>
+      <select id="caseSelect" class="case-select" aria-label="Select Assessment Scenario"></select>
+    </div>
+
+    <div class="utility-cluster">
+      <div class="timer-box">
+        <span id="timerDisplay" class="timer-display">00:00</span>
+        <button type="button" id="btnTimerToggle" class="btn start">Start</button>
+        <button type="button" id="btnTimerReset" class="btn">Reset</button>
+      </div>
+
+      <button type="button" id="btnJsonModal" class="btn">Scenario JSON</button>
+      <button type="button" id="btnExport" class="btn export">Export PDF</button>
+    </div>
+  </header>
+
+  <!-- =======================================================================
+       TWO-SIDED SPLIT WORKSPACE
+       ======================================================================= -->
+  <div class="split-workspace">
+    <!-- LEFT HAND SIDE: LIVE VITALS + SIMPLIFIED SEQUENTIAL GFS OM165 BUTTONS -->
+    <aside class="left-pane" aria-label="Live Vitals and Sequential Assessment Buttons">
+      <div class="vitals-dock">
+        <div class="vitals-dock-header">
+          <span id="physStageBadge" class="stage-label">Initial · Compensated Shock</span>
+          <div class="stage-switch-group">
+            <button type="button" id="btnStageInitial" class="stage-btn active-init">1. Initial</button>
+            <button type="button" id="btnStageDeteriorate" class="stage-btn">2. Deteriorated</button>
+          </div>
+        </div>
+
+        <div id="vitalsGrid" class="vitals-grid"></div>
+        <div id="vitalsGridBottom" class="vitals-grid-bottom"></div>
+      </div>
+
+      <div id="leftFlowScroll" class="flow-scroll"></div>
+    </aside>
+
+    <!-- RIGHT HAND SIDE: SELECTED ITEM DETAILS -> COMPLETE BUTTON -> END TIME LOG & RUBRIC -->
+    <main id="rightPane" class="right-pane" aria-label="Assessment Details, Time Log and Grading Rubric">
+      <!-- 1. Selected Item Detailed Information (Extra-Large Bullet Readout First -> Time-Critical Below) -->
+      <section id="detailSpotlight" class="detail-spotlight" aria-live="polite"></section>
+
+      <!-- 2. Complete Training Action Bar -->
+      <div class="complete-bar">
+        <button type="button" id="btnCompleteTraining" class="btn-complete-run">
+          ✓ Complete Training
+        </button>
+      </div>
+
+      <!-- 3. Chronological Time Log (Collapsed Until Training Completed) -->
+      <section id="timeLogCard" class="panel-card" style="display: none;" aria-label="Chronological Time Log">
+        <div class="panel-head">
+          <span class="panel-title">Chronological Time Log (Expected Outcomes, Stay Duration &amp; Interventions)</span>
+          <span id="logCountBadge" style="font-size: 12.5px; font-weight: 700; color: var(--text-muted);">0 logged</span>
+        </div>
+
+        <div id="outcomesSummaryWrap"></div>
+        <div id="timeLogList" class="log-list expanded"></div>
+      </section>
+
+      <!-- 4. GFS Form OM165 Grading Rubric — Shown When Training Completed -->
+      <section id="rubricSectionWrap" class="rubric-container" style="display: none;" aria-label="GFS Form OM165 Grading Rubric"></section>
+    </main>
+  </div>
+
+  <!-- =======================================================================
+       TWO-PAGE PRINT / PDF CONTAINER (FRONT PAGE: RUBRIC | BACK PAGE: TIME LOG)
+       ======================================================================= -->
+  <div id="printDocument" class="print-only-doc" aria-hidden="true"></div>
+
+  <!-- =======================================================================
+       SCENARIO JSON VIEW / IMPORT MODAL
+       ======================================================================= -->
+  <div id="jsonModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="jsonModalTitle">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span id="jsonModalTitle" style="font-weight: 800; font-size: 15px;">Scenario JSON (View / Upload / Import)</span>
+        <button type="button" id="btnCloseJson">Close</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-secondary);">
+          Upload a <code>.json</code> scenario file from your device or paste scenario JSON below to load it into the console.
+        </p>
+        <input type="file" id="jsonFileInput" accept=".json,application/json" style="display: none;" />
+        <textarea id="jsonTextarea" class="json-editor" spellcheck="false"></textarea>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" id="btnUploadJsonFile" class="btn active-cyan">Upload .json File</button>
+          <button type="button" id="btnCopyJson" class="btn">Copy JSON</button>
+          <button type="button" id="btnApplyJson" class="btn start">Load JSON Scenario</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    /* =========================================================================
+       1. SCENARIO 4 – BLUNT TRAUMA (STRICTLY BASED ON GFS FORM OM165)
+       ========================================================================= */
+    const STORAGE_KEY_CUSTOM_SCENARIOS = "gfs_mtc_custom_scenarios_v1";
+
+    const SCENARIOS = [
+      {
+        id: "scenario-4-blunt-trauma",
+        scenarioNumber: "Scenario 4",
+        title: "Scenario 4 – Blunt Trauma (Mountain Bike Trail)",
+        expectedOutcomes: [
+          {
+            id: "eo_scene_ppe",
+            category: "Assessment",
+            text: "Scene size-up, strict PPE & utilizes 1 bystander",
+            requiredItemIds: ["scene_up"]
+          },
+          {
+            id: "eo_shock",
+            category: "Assessment",
+            text: "Identifies early shock (HR 118, pale/cool/diaphoretic) & internal bleed",
+            requiredItemIds: ["c_circ"]
+          },
+          {
+            id: "eo_chest_abd",
+            category: "Assessment",
+            text: "Identifies L rib crepitus/reduced breath sounds & LUQ/epigastric guarding",
+            requiredItemIds: ["e_chest", "e_abdomen"]
+          },
+          {
+            id: "eo_femur",
+            category: "Assessment",
+            text: "Identifies L femur fracture & recognizes traction splint contraindication",
+            requiredItemIds: ["e_extrem"]
+          },
+          {
+            id: "eo_sample",
+            category: "Assessment",
+            text: "Gathers SAMPLE history from patient & bystander",
+            requiredItemIds: ["o_sample"]
+          },
+          {
+            id: "eo_atmist",
+            category: "Assessment",
+            text: "Reassesses post-intervention vitals & delivers structured ATMIST handover",
+            requiredItemIds: ["secondary_atmist"]
+          },
+          {
+            id: "eo_smr",
+            category: "Intervention",
+            text: "Delegates manual spinal motion restriction (SMR) to bystander",
+            requiredItemIds: ["a_airway"],
+            requiredIntIds: ["smr_bystander"]
+          },
+          {
+            id: "eo_o2",
+            category: "Intervention",
+            text: "Administers 15L NRB high-flow oxygen for rapid shallow breathing (SpO2 91%)",
+            requiredItemIds: ["b_breathing"],
+            requiredIntIds: ["o2_nrb"]
+          },
+          {
+            id: "eo_pelvis",
+            category: "Intervention",
+            text: "Applies pelvic binder centered at greater trochanters for pelvic instability",
+            requiredItemIds: ["e_pelvis"],
+            requiredIntIds: ["pelvic_binder"]
+          },
+          {
+            id: "eo_hypothermia",
+            category: "Intervention",
+            text: "Performs log-roll posterior check, maintains SMR & prevents hypothermia",
+            requiredItemIds: ["e_posterior"]
+          },
+          {
+            id: "eo_load_go",
+            category: "Intervention",
+            text: "Declares Load & Go and notifies Aircraft / Air Command early",
+            requiredItemIds: ["o_load_go"],
+            requiredIntIds: ["load_go_notify"]
+          },
+          {
+            id: "eo_airway_loc",
+            category: "Intervention",
+            text: "Suctions gurgling airway & maintains patency on LOC drop (GCS 9)",
+            requiredItemIds: ["reassess_airway"],
+            requiredIntIds: ["airway_suction"]
+          },
+          {
+            id: "eo_tension",
+            category: "Intervention",
+            text: "Performs left needle decompression & BVM ventilation for tension pneumothorax",
+            requiredItemIds: ["reassess_tension"],
+            requiredIntIds: ["needle_decomp"]
+          }
+        ],
+        computeVitals: function (doneInt, deteriorated) {
+          const hasO2 = !!doneInt.o2_nrb;
+          const hasDecomp = !!doneInt.needle_decomp;
+          const hasBinder = !!doneInt.pelvic_binder;
+
+          if (deteriorated) {
+            if (hasDecomp) {
+              return {
+                stageText: "Decompressed · Stabilizing",
+                stageClass: "treated",
+                bp: hasBinder ? "88/54 mmHg" : "84/56 mmHg",
+                bpClass: "c-amber",
+                hr: "124/min (weak radial)",
+                hrClass: "c-amber",
+                rr: "28/min (BVM/NRB)",
+                rrClass: "c-amber",
+                spo2: "93% (post-decomp)",
+                spo2Class: "c-emerald",
+                gcs: "GCS 12 [4/3/5] · Improving",
+                gcsClass: "c-amber",
+                hstix: "4.7 mmol/L",
+                hstixClass: "c-emerald",
+                skin: "Pale, cool, diaphoretic",
+                skinClass: "c-amber",
+                extra: "EtCO2 34 mmHg (square)"
+              };
+            }
+            return {
+              stageText: "Deteriorated · Evolving Tension Pneumo",
+              stageClass: "crit",
+              bp: "84/56 mmHg",
+              bpClass: "c-red",
+              hr: "132/min (weak radial)",
+              hrClass: "c-red",
+              rr: "32/min (shallow/labored)",
+              rrClass: "c-red",
+              spo2: "85% (despite O2)",
+              spo2Class: "c-red",
+              gcs: "GCS 9 [2/2/5] · Pain only",
+              gcsClass: "c-red",
+              hstix: "4.7 mmol/L",
+              hstixClass: "c-emerald",
+              skin: "Pale, cool, diaphoretic",
+              skinClass: "c-red",
+              extra: "Airway gurgling · L breath sounds absent"
+            };
+          }
+
+          return {
+            stageText: "Initial · Compensated Shock",
+            stageClass: "",
+            bp: hasBinder ? "96/64 mmHg" : "92/60 mmHg",
+            bpClass: "c-amber",
+            hr: "118/min (weak radial)",
+            hrClass: "c-amber",
+            rr: "28/min (rapid/shallow)",
+            rrClass: "c-amber",
+            spo2: hasO2 ? "96% (15L NRB)" : "91% (Room Air)",
+            spo2Class: hasO2 ? "c-emerald" : "c-amber",
+            gcs: "GCS 15 [4/5/6] · Alert/dizzy",
+            gcsClass: "c-emerald",
+            hstix: "4.7 mmol/L",
+            hstixClass: "c-emerald",
+            skin: "Pale, cool, diaphoretic",
+            skinClass: "c-amber",
+            extra: "EtCO2 34 mmHg (square)"
+          };
+        },
+        sequenceGroups: [
+          {
+            groupTitle: "X · Catastrophic Hemorrhage",
+            items: [
+              {
+                id: "scene_up",
+                btnLabel: "Scene & General",
+                phaseLabel: "Scene Size-Up & General Impression",
+                title: "Scene Safety, PPE & General Impression",
+                bullets: [
+                  "Remote mountain bike trail — scene safe, 1 patient",
+                  "1 bystander available to assist if directed",
+                  "Patient supine, helmet on, left leg flexed",
+                  "States: “I feel dizzy… I can’t breathe properly.”"
+                ],
+                detail: "Standard precautions (gloves/eye protection) required. Over-the-handlebars fall onto tree root 40 minutes ago."
+              },
+              {
+                id: "x_hem",
+                btnLabel: "X · External Bleed",
+                phaseLabel: "X — Catastrophic Hemorrhage",
+                title: "External Hemorrhage Sweep",
+                bullets: [
+                  "No external wounds, bruising, or blood visible",
+                  "Suspect occult internal hemorrhage (chest, abdomen, pelvis, femur)"
+                ],
+                detail: "Confirm absence of catastrophic external bleeding before moving immediately to Airway & SMR."
+              }
+            ]
+          },
+          {
+            groupTitle: "A · Airway",
+            items: [
+              {
+                id: "a_airway",
+                btnLabel: "A · Airway & SMR",
+                phaseLabel: "A — Airway & Manual SMR",
+                title: "Airway Patency & Delegate Manual SMR",
+                bullets: [
+                  "Airway clear and open initially",
+                  "Speaks only in short phrases due to breathlessness",
+                  "Helmet on (cracked but intact)"
+                ],
+                detail: "High-force ejection over handlebars indicates spinal motion restriction (SMR). Delegate manual in-line stabilization to the bystander immediately.",
+                timeCritical: {
+                  intId: "smr_bystander",
+                  label: "Manual SMR Delegated to Bystander",
+                  actionText: "Delegate manual in-line spinal stabilization to the bystander before moving on.",
+                  rubricId: "a_open"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "B · Breathing",
+            items: [
+              {
+                id: "b_breathing",
+                btnLabel: "B · Breathing & O2",
+                phaseLabel: "B — Breathing & Oxygen Therapy",
+                title: "Breathing Assessment & High-Flow Oxygen",
+                bullets: [
+                  "RR ~28/min, rapid and shallow",
+                  "SpO2 ~91% on room air",
+                  "Reduced left chest rise; left rib tenderness & crepitus",
+                  "Breath sounds reduced on left, present on right"
+                ],
+                detail: "Spontaneous breathing present — BVM not required initially, but keep BVM ready if respiratory effort worsens or LOC drops.",
+                timeCritical: {
+                  intId: "o2_nrb",
+                  label: "15L NRB High-Flow O2 Applied",
+                  actionText: "Apply high-concentration supplemental oxygen via non-rebreather mask (15 L/min).",
+                  rubricId: "b_o2"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "C · Circulation",
+            items: [
+              {
+                id: "c_circ",
+                btnLabel: "C · Circulation & Shock",
+                phaseLabel: "C — Circulation & Perfusion",
+                title: "Pulse, Skin Perfusion & Shock Recognition",
+                bullets: [
+                  "Radial pulse rapid & weak (~118/min)",
+                  "Skin pale, cool, and diaphoretic",
+                  "Early compensated hypovolemic/obstructive shock"
+                ],
+                detail: "No major external bleeding; recognize internal hemorrhage from chest, abdomen, pelvis, and left femur."
+              }
+            ]
+          },
+          {
+            groupTitle: "D · Disability",
+            items: [
+              {
+                id: "d_neuro",
+                btnLabel: "D · Disability & Pupils",
+                phaseLabel: "D — Disability & Neurological Status",
+                title: "LOC, Pupils, H'stix & Pain",
+                bullets: [
+                  "Alert initially (GCS 15 [4/5/6]), dizzy & anxious",
+                  "Pupils 3 mm, equal and reactive",
+                  "Severe pain in left chest, left abdomen & left hip/thigh",
+                  "H'stix 4.7 mmol/L (if checked)"
+                ],
+                detail: "Note: Patient becomes increasingly drowsy and agitated as scenario progresses."
+              }
+            ]
+          },
+          {
+            groupTitle: "E · Exposure / Environment",
+            items: [
+              {
+                id: "e_head_neck",
+                btnLabel: "Head & Neck",
+                phaseLabel: "E — Full-Body Survey (Head & Neck)",
+                title: "Head & Neck Examination",
+                bullets: [
+                  "Scalp abrasion; helmet cracked but intact",
+                  "No depressed skull fracture or fluid leaks",
+                  "Neck: No obvious injury; trachea midline; neck veins flat"
+                ],
+                detail: "Apply cervical collar once neck is inspected and palpated."
+              },
+              {
+                id: "e_chest",
+                btnLabel: "Chest Exam",
+                phaseLabel: "E — Full-Body Survey (Chest)",
+                title: "Chest Inspection, Palpation & Auscultation",
+                bullets: [
+                  "Bruising over left lower chest; reduced left chest movement",
+                  "Left lower rib tenderness and crepitus",
+                  "Breath sounds reduced on left, clear on right",
+                  "Heart tones normal"
+                ],
+                detail: "Suspect blunt chest trauma with left rib fractures and evolving left pneumothorax."
+              },
+              {
+                id: "e_abdomen",
+                btnLabel: "Abdomen Exam",
+                phaseLabel: "E — Full-Body Survey (Abdomen)",
+                title: "Abdominal Inspection & Palpation",
+                bullets: [
+                  "No obvious external bruising or wounds",
+                  "Tenderness and guarding in epigastrium & left upper quadrant (LUQ)"
+                ],
+                detail: "Suspect intra-abdominal hemorrhage (splenic/upper abdominal injury from tree root impact)."
+              },
+              {
+                id: "e_pelvis",
+                btnLabel: "Pelvis & Binder",
+                phaseLabel: "E — Full-Body Survey (Pelvis)",
+                title: "Pelvic Assessment & Pelvic Binder",
+                bullets: [
+                  "Significant pelvic pain on gentle palpation",
+                  "Suspected pelvic instability"
+                ],
+                detail: "Do not rock or spring the pelvis repeatedly. Apply pelvic binder centered over the greater trochanters.",
+                timeCritical: {
+                  intId: "pelvic_binder",
+                  label: "Pelvic Binder Applied at Greater Trochanters",
+                  actionText: "Apply pelvic binder centered at the greater trochanters immediately.",
+                  rubricId: "e_treat"
+                }
+              },
+              {
+                id: "e_extrem",
+                btnLabel: "Extremities (L Femur)",
+                phaseLabel: "E — Full-Body Survey (Extremities)",
+                title: "Extremity Exam & Static Splinting",
+                bullets: [
+                  "Left thigh obvious deformity & swelling (suspected femur fracture)",
+                  "Very painful to move; left distal pulse weaker than right",
+                  "Right leg & both upper limbs: no injury, good distal PMS",
+                  "TRACTION SPLINT CONTRAINDICATED (pelvic fracture + multisystem trauma)"
+                ],
+                detail: "Immobilize using static splint / vacuum mattress — never apply a traction splint when pelvic fracture is suspected."
+              },
+              {
+                id: "e_posterior",
+                btnLabel: "Posterior & Warmth",
+                phaseLabel: "E — Posterior Exam & Hypothermia Prevention",
+                title: "Log-Roll Posterior Check, Vacuum Mattress & Warming",
+                bullets: [
+                  "No obvious penetrating posterior injuries",
+                  "Tenderness over left posterior lower ribs on log-roll",
+                  "Secure on vacuum mattress & initiate active warming"
+                ],
+                detail: "Maintain spinal motion restriction during log-roll, preserve patient dignity, and prevent hypothermia."
+              }
+            ]
+          },
+          {
+            groupTitle: "O · Others",
+            items: [
+              {
+                id: "o_sample",
+                btnLabel: "SAMPLE History",
+                phaseLabel: "O — SAMPLE History",
+                title: "Gather SAMPLE History",
+                bullets: [
+                  "S: Severe pain L chest, L abdomen, L hip/thigh; dizzy & SOB",
+                  "A: None · M: Nil · P: Nil · L: ~2 hours ago",
+                  "E: Thrown over MTB handlebars 40 min ago onto tree root"
+                ],
+                detail: "Obtained from patient (short phrases) and riding bystander."
+              },
+              {
+                id: "o_load_go",
+                btnLabel: "Load & Go / Air Cmd",
+                phaseLabel: "O — Transport Decision & Early Notification",
+                title: "Critical Transport Decision & Aircraft Notification",
+                bullets: [
+                  "Unstable multisystem blunt trauma — immediate Load & Go",
+                  "Notify Aircraft / Air Command early with critical trauma findings"
+                ],
+                detail: "Do not delay on scene for non-essential procedures.",
+                timeCritical: {
+                  intId: "load_go_notify",
+                  label: "Load & Go Declared & Air Command Notified",
+                  actionText: "Declare unstable Load & Go and notify Aircraft / Air Command early.",
+                  rubricId: "o_handover"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "Reassessment & Secondary",
+            items: [
+              {
+                id: "reassess_airway",
+                btnLabel: "Reassess: Airway/LOC",
+                phaseLabel: "Reassessment — Neurological & Airway Deterioration",
+                title: "LOC Drop (GCS 9) & Gurgling Airway Suction",
+                bullets: [
+                  "Responds only to pain — GCS 9 [2/2/5]",
+                  "Airway gurgling — requires immediate suction & airway maneuvers",
+                  "BP 84/56 mmHg · HR 132/min weak radial"
+                ],
+                detail: "Trigger deterioration stage if not already active; suction airway and insert OPA/NPA as tolerated.",
+                timeCritical: {
+                  intId: "airway_suction",
+                  label: "Airway Suctioned & Adjunct Placed",
+                  actionText: "Suction gurgling airway and maintain patency with airway maneuvers/adjunct.",
+                  rubricId: "a_adjunct"
+                }
+              },
+              {
+                id: "reassess_tension",
+                btnLabel: "Reassess: Tension Pneumo",
+                phaseLabel: "Reassessment — Left Tension Pneumothorax",
+                title: "Evolving Left Tension Pneumothorax & Decompression",
+                bullets: [
+                  "RR 32/min shallow, markedly increased work of breathing",
+                  "SpO2 drops to 85% despite high-flow oxygen",
+                  "Left breath sounds markedly diminished/absent",
+                  "Trachea midline, neck veins flat (not required for diagnosis)"
+                ],
+                detail: "Perform left needle thoracentesis (2nd ICS midclavicular or 4th/5th ICS anterior axillary) and assist ventilations with BVM.",
+                timeCritical: {
+                  intId: "needle_decomp",
+                  label: "Left Needle Decompression & BVM Ventilation",
+                  actionText: "Perform left needle decompression and assist ventilations with BVM.",
+                  rubricId: "b_bvm"
+                }
+              },
+              {
+                id: "secondary_atmist",
+                btnLabel: "Secondary & ATMIST",
+                phaseLabel: "Secondary Survey & Structured Handover",
+                title: "Post-Intervention Reassessment & ATMIST Handover",
+                bullets: [
+                  "Post-decomp/fluids: BP 88/54, HR 124, RR 28, SpO2 93%, GCS 12 [4/3/5]",
+                  "H'stix 4.7 mmol/L · EtCO2 34 mmHg (square waveform)",
+                  "Deliver structured ATMIST handover to receiving team"
+                ],
+                detail: "Confirm pelvic binder at greater trochanters, static L femur splint, SMR, warming, and IV/IO access."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "scenario-5-hypoglycemia",
+        scenarioNumber: "Scenario 5",
+        title: "Scenario 5 – Acute Hypoglycemia (H'stix & Glutose 15)",
+        vitals: {
+          initial: {
+            stageText: "Initial · Hypoglycemia (H'stix 2.1)",
+            stageClass: "",
+            bp: "128/78 mmHg",
+            bpClass: "c-emerald",
+            hr: "106/min (strong)",
+            hrClass: "c-amber",
+            rr: "18/min (regular)",
+            rrClass: "c-emerald",
+            spo2: "98% (Room Air)",
+            spo2Class: "c-emerald",
+            gcs: "GCS 13 [4/4/5] · Confused",
+            gcsClass: "c-amber",
+            hstix: "2.1 mmol/L (LOW)",
+            hstixClass: "c-red",
+            skin: "Pale, cool, diaphoretic",
+            skinClass: "c-amber"
+          },
+          deteriorated: {
+            stageText: "Deteriorated · Neuroglycopenia (H'stix 1.8)",
+            stageClass: "crit",
+            bp: "134/82 mmHg",
+            bpClass: "c-amber",
+            hr: "116/min (strong)",
+            hrClass: "c-red",
+            rr: "16/min (shallow)",
+            rrClass: "c-amber",
+            spo2: "96% (Room Air)",
+            spo2Class: "c-emerald",
+            gcs: "GCS 10 [3/3/4] · Very drowsy",
+            gcsClass: "c-red",
+            hstix: "1.8 mmol/L (CRIT)",
+            hstixClass: "c-red",
+            skin: "Cold, clammy, diaphoretic",
+            skinClass: "c-red"
+          },
+          afterInterventions: {
+            glutose_15: {
+              stageText: "Post-Glutose 15 · Recovering (H'stix 4.6)",
+              stageClass: "treated",
+              bp: "122/76 mmHg",
+              bpClass: "c-emerald",
+              hr: "86/min (strong)",
+              hrClass: "c-emerald",
+              rr: "16/min (regular)",
+              rrClass: "c-emerald",
+              spo2: "99% (Room Air)",
+              spo2Class: "c-emerald",
+              gcs: "GCS 15 [4/5/6] · Alert & oriented",
+              gcsClass: "c-emerald",
+              hstix: "4.6 mmol/L",
+              hstixClass: "c-emerald",
+              skin: "Warming, dry",
+              skinClass: "c-emerald"
+            }
+          }
+        },
+        expectedOutcomes: [
+          {
+            id: "eo5_scene",
+            category: "Assessment",
+            text: "Scene size-up, strict PPE & obtains collateral info from hiking companion",
+            requiredItemIds: ["scene_up"]
+          },
+          {
+            id: "eo5_airway",
+            category: "Assessment",
+            text: "Assesses airway patency & confirms intact swallow reflex before oral glucose",
+            requiredItemIds: ["a_airway"]
+          },
+          {
+            id: "eo5_circ",
+            category: "Assessment",
+            text: "Identifies autonomic shock-like signs (HR 106, pale/cool/diaphoretic skin)",
+            requiredItemIds: ["c_circ"]
+          },
+          {
+            id: "eo5_hstix",
+            category: "Assessment",
+            text: "Performs H'stix capillary blood glucose check & identifies hypoglycemia (2.1 mmol/L)",
+            requiredItemIds: ["d_hstix"],
+            requiredIntIds: ["hstix_checked"]
+          },
+          {
+            id: "eo5_sample",
+            category: "Assessment",
+            text: "Gathers SAMPLE history (Type 1 Diabetes, took insulin, skipped breakfast)",
+            requiredItemIds: ["o_sample"]
+          },
+          {
+            id: "eo5_reassess",
+            category: "Assessment",
+            text: "Rechecks H'stix (4.6 mmol/L) & GCS post-treatment and delivers ATMIST handover",
+            requiredItemIds: ["reassess_hstix", "secondary_atmist"]
+          },
+          {
+            id: "eo5_glutose",
+            category: "Intervention",
+            text: "Administers Glutose 15 (15g oral glucose gel) safely via buccal mucosa",
+            requiredItemIds: ["d_glutose"],
+            requiredIntIds: ["glutose_15"]
+          },
+          {
+            id: "eo5_hypo",
+            category: "Intervention",
+            text: "Completes full-body check & prevents hypothermia from sweat-soaked clothing",
+            requiredItemIds: ["e_expose"]
+          },
+          {
+            id: "eo5_carb",
+            category: "Intervention",
+            text: "Provides complex carbohydrate snack once fully alert & plans transport/handover",
+            requiredItemIds: ["secondary_atmist"]
+          }
+        ],
+        sequenceGroups: [
+          {
+            groupTitle: "X · Catastrophic Hemorrhage",
+            items: [
+              {
+                id: "scene_up",
+                btnLabel: "Scene & General",
+                phaseLabel: "Scene Size-Up & General Impression",
+                title: "Scene Safety, PPE & General Impression",
+                bullets: [
+                  "Remote hiking trail — scene safe, 1 patient",
+                  "1 hiking companion on scene able to give history",
+                  "34-year-old sitting on trail bench, slumped forward, visibly sweating",
+                  "Slurred speech: “I feel shaky… don’t know where I am.”"
+                ],
+                detail: "Apply standard precautions (gloves/eye protection). Companion reports patient suddenly became dizzy and confused while walking uphill."
+              },
+              {
+                id: "x_hem",
+                btnLabel: "X · External Bleed",
+                phaseLabel: "X — Catastrophic Hemorrhage",
+                title: "External Hemorrhage Sweep",
+                bullets: [
+                  "No external bleeding or trauma visible",
+                  "No fall from height or impact mechanism"
+                ],
+                detail: "Confirm no external hemorrhage and proceed directly to Airway."
+              }
+            ]
+          },
+          {
+            groupTitle: "A · Airway",
+            items: [
+              {
+                id: "a_airway",
+                btnLabel: "A · Airway & Swallow",
+                phaseLabel: "A — Airway & Swallow Safety",
+                title: "Airway Patency & Gag/Swallow Assessment",
+                bullets: [
+                  "Airway open and self-maintained; no snoring or gurgling",
+                  "Speech slightly slurred, but coughing and swallowing saliva normally",
+                  "Spinal motion restriction (SMR) not indicated (medical presentation)"
+                ],
+                detail: "Confirming intact airway reflexes and ability to swallow is essential before administering oral Glutose 15."
+              }
+            ]
+          },
+          {
+            groupTitle: "B · Breathing",
+            items: [
+              {
+                id: "b_breathing",
+                btnLabel: "B · Breathing",
+                phaseLabel: "B — Breathing Assessment",
+                title: "Respiratory Rate, Effort & Oxygenation",
+                bullets: [
+                  "RR 18/min, regular rhythm and normal depth",
+                  "SpO2 98% on room air",
+                  "Breath sounds clear and equal bilaterally"
+                ],
+                detail: "Supplemental oxygen is not required while SpO2 remains 98% on room air."
+              }
+            ]
+          },
+          {
+            groupTitle: "C · Circulation",
+            items: [
+              {
+                id: "c_circ",
+                btnLabel: "C · Circulation",
+                phaseLabel: "C — Circulation & Perfusion",
+                title: "Pulse, BP & Skin Perfusion",
+                bullets: [
+                  "Radial pulse 106/min, strong and regular",
+                  "BP 128/78 mmHg · CRT < 2 seconds",
+                  "Skin pale, cool, and markedly diaphoretic (sweat-soaked shirt)"
+                ],
+                detail: "Adrenergic sweating and mild tachycardia with normal BP strongly suggest acute hypoglycemia."
+              }
+            ]
+          },
+          {
+            groupTitle: "D · Disability",
+            items: [
+              {
+                id: "d_hstix",
+                btnLabel: "D · H'stix Check",
+                phaseLabel: "D — Disability (Critical Assessment: Blood Glucose)",
+                title: "LOC, Pupils & H'stix Blood Glucose Check",
+                bullets: [
+                  "GCS 13 [4/4/5] — responds to voice, disoriented to time and place",
+                  "Pupils 4 mm, equal and reactive to light",
+                  "CRITICAL FINDING — H'stix: 2.1 mmol/L (Severe Hypoglycemia)"
+                ],
+                detail: "Perform capillary finger-prick H'stix immediately for any patient with altered mental status.",
+                timeCritical: {
+                  intId: "hstix_checked",
+                  label: "H'stix Blood Glucose Checked (2.1 mmol/L)",
+                  actionText: "Perform capillary H'stix blood glucose check immediately.",
+                  rubricId: "d_pupils"
+                }
+              },
+              {
+                id: "d_glutose",
+                btnLabel: "D · Glutose 15",
+                phaseLabel: "D — Disability (Critical Intervention: Oral Glucose)",
+                title: "Administer Glutose 15 (15g Oral Glucose Gel)",
+                bullets: [
+                  "Patient awake enough to sit upright and swallow safely",
+                  "Administer 1 tube of Glutose 15 (15g) inside cheek (buccal mucosa)",
+                  "Do NOT force gel if patient becomes unresponsive / loses swallow"
+                ],
+                detail: "If LOC drops to unresponsive/unable to swallow (Deteriorated stage), oral gel is contraindicated — switch to IV Dextrose 10% or IM Glucagon.",
+                timeCritical: {
+                  intId: "glutose_15",
+                  label: "Glutose 15 (15g Oral Glucose) Administered",
+                  actionText: "Confirm swallow safety and administer Glutose 15 (15g oral glucose gel).",
+                  rubricId: "d_deter"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "E · Exposure / Environment",
+            items: [
+              {
+                id: "e_expose",
+                btnLabel: "Head-to-Toe & Warmth",
+                phaseLabel: "E — Exposure & Hypothermia Prevention",
+                title: "Full-Body Survey, Medical ID & Thermoregulation",
+                bullets: [
+                  "Head, neck, chest, abdomen, pelvis & limbs: no trauma",
+                  "Medical alert bracelet on left wrist: “Type 1 Diabetes”",
+                  "Change/dry sweat-soaked shirt and cover with blanket to prevent cooling"
+                ],
+                detail: "Check for medical ID tags/insulin pump sites, preserve dignity, and prevent heat loss from heavy diaphoresis."
+              }
+            ]
+          },
+          {
+            groupTitle: "O · Others",
+            items: [
+              {
+                id: "o_sample",
+                btnLabel: "SAMPLE History",
+                phaseLabel: "O — SAMPLE History",
+                title: "Gather SAMPLE History from Patient & Companion",
+                bullets: [
+                  "S: Confusion, shakiness, heavy sweating, slurred speech",
+                  "A: None · M: Insulin (Novorapid & Lantus)",
+                  "P: Type 1 Diabetes Mellitus · L: Took morning insulin 2h ago, skipped breakfast",
+                  "E: Hiking uphill for 90 min without food before onset"
+                ],
+                detail: "Obtained from hiking companion and verified with patient as mentation improves."
+              },
+              {
+                id: "o_transport",
+                btnLabel: "Transport & CRM",
+                phaseLabel: "O — Scene Management & Transport Plan",
+                title: "CRM & Evacuation / Transport Decision",
+                bullets: [
+                  "Keep patient seated/resting safely while glucose absorbs",
+                  "Coordinate evacuation/transport plan with crew and companion"
+                ],
+                detail: "Reassess response 10–15 minutes after Glutose 15 before attempting any exertion."
+              }
+            ]
+          },
+          {
+            groupTitle: "Reassessment & Secondary",
+            items: [
+              {
+                id: "reassess_hstix",
+                btnLabel: "Reassess: H'stix & GCS",
+                phaseLabel: "Reassessment — 10 Min Post-Glutose 15",
+                title: "Repeat H'stix, Neurological Status & Vitals",
+                bullets: [
+                  "Repeat H'stix: improves from 2.1 to 4.6 mmol/L",
+                  "GCS improves to 15 [4/5/6] — alert, oriented, clear speech",
+                  "BP 122/76 mmHg · HR 86/min · RR 16/min · SpO2 99%",
+                  "Sweating resolved; skin warming and dry"
+                ],
+                detail: "If Glutose 15 was not given, patient deteriorates to GCS 10 and H'stix 1.8 mmol/L."
+              },
+              {
+                id: "secondary_atmist",
+                btnLabel: "Snack & ATMIST",
+                phaseLabel: "Secondary Survey & Structured Handover",
+                title: "Complex Carbohydrate Follow-Up & ATMIST Handover",
+                bullets: [
+                  "Offer complex carbohydrate snack (e.g., crackers/sandwich) now that patient is alert",
+                  "Advise avoiding strenuous hiking immediately",
+                  "Deliver structured ATMIST handover to receiving medical team"
+                ],
+                detail: "Complex carbohydrates prevent rebound hypoglycemia after fast-acting Glutose 15 wears off."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "scenario-6-ami-cardiac-arrest",
+        scenarioNumber: "Scenario 6",
+        title: "Scenario 6 – Acute Myocardial Infarction (AMI) & Cardiac Arrest",
+        expectedOutcomes: [
+          {
+            id: "eo6_scene",
+            category: "Assessment",
+            text: "Performs scene size-up, applies strict PPE & recognizes single-responder (alone) constraint",
+            requiredItemIds: ["scene_up"]
+          },
+          {
+            id: "eo6_resp",
+            category: "Assessment",
+            text: "Identifies tachypnea (RR 30) & hypoxemia (SpO2 90%) with clear bilateral lung fields",
+            requiredItemIds: ["b_breathing"]
+          },
+          {
+            id: "eo6_circ",
+            category: "Assessment",
+            text: "Identifies narrow pulse pressure (BP 100/80), tachycardia (HR 120) & diaphoresis",
+            requiredItemIds: ["c_circ"]
+          },
+          {
+            id: "eo6_neuro_pain",
+            category: "Assessment",
+            text: "Assesses GCS 15, PEARL, normal H'stix (5.4 mmol/L) & ischemic chest pain characteristics",
+            requiredItemIds: ["d_neuro"]
+          },
+          {
+            id: "eo6_sample",
+            category: "Assessment",
+            text: "Gathers focused SAMPLE history (cardiac risk factors, sudden chest pain onset)",
+            requiredItemIds: ["o_sample"]
+          },
+          {
+            id: "eo6_arrest_detect",
+            category: "Assessment",
+            text: "Promptly recognizes sudden cardiac arrest (unresponsive, apneic, pulseless) & post-ROSC vitals",
+            requiredItemIds: ["reassess_arrest", "secondary_atmist"]
+          },
+          {
+            id: "eo6_o2",
+            category: "Intervention",
+            text: "Administers high-flow oxygen (15L NRB) for hypoxemia (SpO2 90%)",
+            requiredItemIds: ["b_breathing"],
+            requiredIntIds: ["o2_nrb"]
+          },
+          {
+            id: "eo6_aspirin",
+            category: "Intervention",
+            text: "Places patient in position of comfort, minimizes exertion & administers Aspirin 300mg PO",
+            requiredItemIds: ["c_circ"],
+            requiredIntIds: ["ami_aspirin"]
+          },
+          {
+            id: "eo6_load_go",
+            category: "Intervention",
+            text: "Declares Load & Go and notifies Aircraft / Air Command early for suspected AMI",
+            requiredItemIds: ["o_load_go"],
+            requiredIntIds: ["load_go_ami"]
+          },
+          {
+            id: "eo6_cpr_aed",
+            category: "Intervention",
+            text: "Initiates immediate high-quality CPR & delivers AED defibrillation for VF arrest",
+            requiredItemIds: ["reassess_arrest"],
+            requiredIntIds: ["cpr_aed"]
+          },
+          {
+            id: "eo6_rosc_care",
+            category: "Intervention",
+            text: "Secures post-ROSC airway, maintains oxygenation & delivers structured ATMIST handover",
+            requiredItemIds: ["reassess_rosc", "secondary_atmist"],
+            requiredIntIds: ["rosc_airway_o2"]
+          }
+        ],
+        computeVitals: function (doneInt, deteriorated) {
+          const hasO2 = !!doneInt.o2_nrb;
+          const hasDefib = !!doneInt.cpr_aed;
+          const hasRoscO2 = !!doneInt.rosc_airway_o2;
+
+          if (deteriorated) {
+            if (hasDefib) {
+              return {
+                stageText: "ROSC · Post-AED Defibrillation",
+                stageClass: "treated",
+                bp: "112/74 mmHg",
+                bpClass: "c-emerald",
+                hr: "96/min (regular radial)",
+                hrClass: "c-emerald",
+                rr: "18/min (spontaneous)",
+                rrClass: "c-emerald",
+                spo2: hasRoscO2 || hasO2 ? "96% (15L NRB)" : "93% (Room Air)",
+                spo2Class: "c-emerald",
+                gcs: "GCS 13 [3/4/6] · Rousing",
+                gcsClass: "c-amber",
+                hstix: "5.4 mmol/L",
+                hstixClass: "c-emerald",
+                skin: "Pale, warming · EtCO2 36 mmHg",
+                skinClass: "c-emerald"
+              };
+            }
+            return {
+              stageText: "Deteriorated · Cardiac Arrest (VF)",
+              stageClass: "crit",
+              bp: "0/0 (Unrecordable)",
+              bpClass: "c-red",
+              hr: "0/min (Pulseless · VF)",
+              hrClass: "c-red",
+              rr: "0/min (Apneic)",
+              rrClass: "c-red",
+              spo2: "No capture",
+              spo2Class: "c-red",
+              gcs: "GCS 3 [1/1/1] · Unresponsive",
+              gcsClass: "c-red",
+              hstix: "5.4 mmol/L",
+              hstixClass: "c-emerald",
+              skin: "Cyanotic, cold, sweating",
+              skinClass: "c-red"
+            };
+          }
+
+          return {
+            stageText: "Initial · Suspected AMI",
+            stageClass: "",
+            bp: "100/80 mmHg",
+            bpClass: "c-amber",
+            hr: "120/min (tachycardic)",
+            hrClass: "c-red",
+            rr: "30/min (rapid/shallow)",
+            rrClass: "c-red",
+            spo2: hasO2 ? "96% (15L NRB)" : "90% (Room Air)",
+            spo2Class: hasO2 ? "c-emerald" : "c-amber",
+            gcs: "GCS 15 [4/5/6] · Alert/anxious",
+            gcsClass: "c-emerald",
+            hstix: "5.4 mmol/L (Normal)",
+            hstixClass: "c-emerald",
+            skin: "Pale, cool, sweating",
+            skinClass: "c-amber"
+          };
+        },
+        sequenceGroups: [
+          {
+            groupTitle: "X · Catastrophic Hemorrhage",
+            items: [
+              {
+                id: "scene_up",
+                btnLabel: "Scene & General",
+                phaseLabel: "Scene Size-Up & General Impression",
+                title: "Scene Safety, PPE & General Impression",
+                bullets: [
+                  "Scene safe — responding alone (no bystanders available)",
+                  "1 patient sitting upright, clutching center of chest",
+                  "Visibly pale, anxious, and sweating heavily",
+                  "States: “Sudden crushing pain in my chest… hard to breathe.”"
+                ],
+                detail: "Apply strict PPE (gloves/eye protection) and keep AED/resuscitation kit within immediate reach."
+              },
+              {
+                id: "x_hem",
+                btnLabel: "X · External Bleed",
+                phaseLabel: "X — Catastrophic Hemorrhage",
+                title: "External Hemorrhage Sweep",
+                bullets: [
+                  "No external hemorrhage or traumatic injury visible",
+                  "Non-traumatic medical presentation"
+                ],
+                detail: "Confirm absence of catastrophic external bleeding and proceed immediately to Airway."
+              }
+            ]
+          },
+          {
+            groupTitle: "A · Airway",
+            items: [
+              {
+                id: "a_airway",
+                btnLabel: "A · Airway",
+                phaseLabel: "A — Airway Assessment",
+                title: "Airway Patency & Protection",
+                bullets: [
+                  "Airway open, clear, and self-maintained initially",
+                  "Speaking in short, breathless sentences; no stridor or gurgling",
+                  "Spinal motion restriction (SMR) not indicated"
+                ],
+                detail: "Monitor airway continuously — sudden cardiac arrest will require immediate airway opening and OPA/NPA."
+              }
+            ]
+          },
+          {
+            groupTitle: "B · Breathing",
+            items: [
+              {
+                id: "b_breathing",
+                btnLabel: "B · Breathing & O2",
+                phaseLabel: "B — Breathing & Oxygen Therapy",
+                title: "Breathing Assessment & High-Flow Oxygen",
+                bullets: [
+                  "RR 30/min, rapid and shallow with increased work of breathing",
+                  "SpO2 90% on room air (hypoxemic)",
+                  "Breath sounds clear and equal bilaterally (no wheeze or crackles)"
+                ],
+                detail: "Administer supplemental oxygen via 15L non-rebreather mask to correct hypoxemia (SpO2 < 94%).",
+                timeCritical: {
+                  intId: "o2_nrb",
+                  label: "15L NRB High-Flow O2 Applied",
+                  actionText: "Administer high-flow supplemental oxygen via 15L NRB mask for SpO2 90%.",
+                  rubricId: "b_o2"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "C · Circulation",
+            items: [
+              {
+                id: "c_circ",
+                btnLabel: "C · Circulation & AMI Care",
+                phaseLabel: "C — Circulation & Acute Coronary Care",
+                title: "Perfusion, Comfort Positioning & Aspirin 300mg",
+                bullets: [
+                  "HR 120/min (rapid, regular radial pulse) · BP 100/80 mmHg",
+                  "Skin pale, cool, and sweating (diaphoretic) · CRT ~2.5s",
+                  "Keep patient at rest in semi-sitting position (prevent exertion)",
+                  "Confirm no allergy/GI bleed & administer Aspirin 300mg PO (chewed)"
+                ],
+                detail: "Narrow pulse pressure (100/80), tachycardia, and diaphoresis indicate acute myocardial ischemia with early cardiogenic stress.",
+                timeCritical: {
+                  intId: "ami_aspirin",
+                  label: "Semi-Sitting Rest & Aspirin 300mg Administered",
+                  actionText: "Keep patient at rest in semi-sitting position & administer Aspirin 300mg PO (chewed).",
+                  rubricId: "c_shock"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "D · Disability",
+            items: [
+              {
+                id: "d_neuro",
+                btnLabel: "D · Disability & Pain",
+                phaseLabel: "D — Disability, H'stix & Pain Assessment",
+                title: "LOC, Pupils, H'stix & Ischemic Pain Assessment",
+                bullets: [
+                  "GCS 15 [4/5/6] — alert, oriented, very anxious",
+                  "Pupils 3 mm, equal and reactive to light (PEARL)",
+                  "H'stix: 5.4 mmol/L (Normal)",
+                  "Pain: 9/10 central crushing chest pressure radiating to L arm & jaw"
+                ],
+                detail: "Note: Patient is at high risk of sudden ventricular fibrillation (VF) cardiac arrest."
+              }
+            ]
+          },
+          {
+            groupTitle: "E · Exposure / Environment",
+            items: [
+              {
+                id: "e_chest_neck",
+                btnLabel: "Head, Neck & Chest",
+                phaseLabel: "E — Head, Neck & Chest Examination",
+                title: "Head, Neck & Thoracic Inspection/Palpation",
+                bullets: [
+                  "Head & neck unremarkable; trachea midline; JVD flat",
+                  "Chest wall symmetric, no bruising or tenderness on palpation",
+                  "Pain is deep visceral (not reproducible by chest wall pressure)",
+                  "Lung fields clear bilaterally; rapid heart tones"
+                ],
+                detail: "Non-reproducible visceral chest pain supports acute coronary syndrome over musculoskeletal injury."
+              },
+              {
+                id: "e_abd_pelvis_limbs",
+                btnLabel: "Abd, Pelvis & Limbs",
+                phaseLabel: "E — Abdomen, Pelvis, Limbs & Thermoregulation",
+                title: "Lower Survey & Hypothermia Prevention",
+                bullets: [
+                  "Abdomen soft and non-tender; pelvis stable",
+                  "Upper & lower extremities intact, no edema, equal distal PMS",
+                  "Posterior clear; cover patient to prevent cooling from sweat"
+                ],
+                detail: "Maintain patient dignity and prevent heat loss from diaphoretic skin."
+              }
+            ]
+          },
+          {
+            groupTitle: "O · Others",
+            items: [
+              {
+                id: "o_sample",
+                btnLabel: "SAMPLE History",
+                phaseLabel: "O — SAMPLE History",
+                title: "Gather Focused SAMPLE History",
+                bullets: [
+                  "S: Sudden crushing central chest pain (9/10) to L arm/jaw, SOB, sweating",
+                  "A: None · M: Atorvastatin (irregularly)",
+                  "P: Hypertension, hyperlipidemia, smoker · L: Light meal 2 hrs ago",
+                  "E: Sudden onset at rest 15 minutes ago"
+                ],
+                detail: "Multiple cardiovascular risk factors present."
+              },
+              {
+                id: "o_load_go",
+                btnLabel: "Load & Go / Air Cmd",
+                phaseLabel: "O — Transport Priority & Early Notification",
+                title: "Load & Go Decision & Early Air Command Alert",
+                bullets: [
+                  "Time-critical suspected AMI — declare immediate Load & Go",
+                  "Notify Aircraft / Air Command early (single responder managing critical case)"
+                ],
+                detail: "Early notification ensures rapid cardiac center evacuation.",
+                timeCritical: {
+                  intId: "load_go_ami",
+                  label: "Load & Go Declared & Air Command Notified",
+                  actionText: "Declare immediate Load & Go and notify Aircraft / Air Command early.",
+                  rubricId: "o_handover"
+                }
+              }
+            ]
+          },
+          {
+            groupTitle: "Reassessment & Secondary",
+            items: [
+              {
+                id: "reassess_arrest",
+                btnLabel: "Reassess: Cardiac Arrest",
+                phaseLabel: "Reassessment — Sudden Cardiac Arrest (VF)",
+                title: "Sudden Collapse, Arrest Recognition, CPR & AED",
+                bullets: [
+                  "CRITICAL EVENT: Patient suddenly slumps over, eyes roll back",
+                  "Unresponsive (GCS 3), apneic (RR 0), carotid pulse ABSENT",
+                  "Start immediate chest compressions (30:2) & apply AED pads",
+                  "AED advises shock (Ventricular Fibrillation) — clear & deliver shock"
+                ],
+                detail: "Confirm pulselessness (< 10 sec), start high-quality CPR immediately, and follow AED voice prompts without delay.",
+                timeCritical: {
+                  intId: "cpr_aed",
+                  label: "High-Quality CPR Started & AED Shock Delivered",
+                  actionText: "Initiate immediate high-quality CPR (30:2) and deliver AED defibrillation shock.",
+                  rubricId: "c_shock"
+                }
+              },
+              {
+                id: "reassess_rosc",
+                btnLabel: "Reassess: Post-ROSC",
+                phaseLabel: "Reassessment — Return of Spontaneous Circulation (ROSC)",
+                title: "ROSC Confirmation, Airway & Oxygenation",
+                bullets: [
+                  "After AED shock & CPR cycle: patient groans and gasps",
+                  "Strong radial & carotid pulse returns (HR 96/min) · BP 112/74 mmHg",
+                  "SpO2 96% on 15L NRB · GCS 13 [3/4/6] · EtCO2 36 mmHg",
+                  "Maintain airway patency, high-flow oxygen & keep AED pads attached"
+                ],
+                detail: "Do not remove AED pads after ROSC in case of recurrent ventricular fibrillation.",
+                timeCritical: {
+                  intId: "rosc_airway_o2",
+                  label: "ROSC Confirmed, Airway & 15L NRB Maintained",
+                  actionText: "Confirm ROSC pulse, maintain patent airway & 15L NRB oxygen, and keep AED pads attached.",
+                  rubricId: "a_open"
+                }
+              },
+              {
+                id: "secondary_atmist",
+                btnLabel: "Secondary & ATMIST",
+                phaseLabel: "Secondary Survey & Structured Handover",
+                title: "Post-ROSC Monitoring & ATMIST Handover",
+                bullets: [
+                  "Repeat vitals: BP 112/74, HR 96, RR 18, SpO2 96%, GCS 13, H'stix 5.4",
+                  "Continuous cardiac rhythm & EtCO2 monitoring during evacuation",
+                  "Deliver structured ATMIST handover (AMI -> VF Arrest -> 1x AED Shock -> ROSC)"
+                ],
+                detail: "Prepare for immediate transport to PCI-capable receiving hospital."
+              }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const RUBRIC_SECTIONS = [
+      {
+        title: "X - Catastrophic Hemorrhage",
+        items: [
+          { id: "x_id", text: "Identify life-threatening haemorrhage promptly" },
+          { id: "x_ctrl", text: "Apply appropriate bleeding control measures" },
+          { id: "x_reassess", text: "Reassess effectiveness of haemorrhage control" }
+        ]
+      },
+      {
+        title: "A - Airway",
+        items: [
+          { id: "a_patency", text: "Assess patency (look/listen/feel)" },
+          { id: "a_open", text: "Perform appropriate Open-Clear-Maintain skills" },
+          { id: "a_adjunct", text: "Apply manoeuvres and airway adjuncts correctly" }
+        ]
+      },
+      {
+        title: "B - Breathing",
+        items: [
+          { id: "b_assess", text: "Assess rate, depth, symmetry and work of breathing" },
+          { id: "b_o2", text: "Administer appropriate oxygen therapy" },
+          { id: "b_bvm", text: "Perform assisted ventilation when indicated" }
+        ]
+      },
+      {
+        title: "C - Circulation",
+        items: [
+          { id: "c_pulse", text: "Assess pulse, CRT and skin colour" },
+          { id: "c_vitals", text: "Measure and interpret full vital signs" },
+          { id: "c_shock", text: "Identify and manage shock appropriately" }
+        ]
+      },
+      {
+        title: "D - Disability",
+        items: [
+          { id: "d_loc", text: "Assess level of consciousness accurately (AVPU/GCS)" },
+          { id: "d_pupils", text: "Check pupils and blood glucose" },
+          { id: "d_deter", text: "Recognize neurological deterioration" },
+          { id: "d_pain", text: "Assesses and manages pain appropriately" }
+        ]
+      },
+      {
+        title: "E - Exposure / Environment",
+        items: [
+          { id: "e_survey", text: "Perform an appropriate rapid full-body survey" },
+          { id: "e_treat", text: "Expose, exam and treat the injuries/wounds" },
+          { id: "e_hypo", text: "Maintain patient dignity and prevents hypothermia" }
+        ]
+      },
+      {
+        title: "O - Others",
+        items: [
+          { id: "o_sample", text: "Gathers SAMPLE history" },
+          { id: "o_handover", text: "Perform a structured patient handover (ATMIST) and documentation" },
+          { id: "o_crm", text: "Demonstrate effective CRM" },
+          { id: "o_ipc", text: "Apply strict infection control" }
+        ]
+      }
+    ];
+
+    /* =========================================================================
+       3. APPLICATION STATE & HELPERS
+       ========================================================================= */
+    function loadSavedCustomScenarios() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_SCENARIOS);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveCustomScenarios(list) {
+      try {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_SCENARIOS, JSON.stringify(list));
+      } catch (e) {
+        /* ignore storage quota errors */
+      }
+    }
+
+    const state = {
+      activeScenarioId: SCENARIOS[0].id,
+      customScenarios: loadSavedCustomScenarios(),
+      selectedItemId: SCENARIOS[0].sequenceGroups[0].items[0].id,
+      currentSessionEntryId: null,
+      timerSeconds: 0,
+      timerRunning: false,
+      timerInterval: null,
+      resetPending: false,
+      deteriorated: false,
+      assessedItems: {},
+      doneInterventions: {},
+      timeLog: [],
+      outcomeOverrides: {},
+      trainingCompleted: false,
+      candidateName: "",
+      evalDate: new Date().toISOString().slice(0, 10),
+      rubricGrades: {},
+      overallRating: "",
+      remarks: ""
+    };
+
+    function pad2(n) {
+      return String(Math.max(0, Math.floor(n))).padStart(2, "0");
+    }
+
+    function fmtTime(sec) {
+      return `${pad2(sec / 60)}:${pad2(sec % 60)}`;
+    }
+
+    function fmtDuration(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      if (s < 60) return `${s}s`;
+      return `${Math.floor(s / 60)}m ${pad2(s % 60)}s`;
+    }
+
+    function getAllScenarios() {
+      return [...SCENARIOS, ...state.customScenarios];
+    }
+
+    function getActiveScenario() {
+      return getAllScenarios().find(s => s.id === state.activeScenarioId) || SCENARIOS[0];
+    }
+
+    function resolveScenarioVitals(sc, doneInt, deteriorated) {
+      if (typeof sc.computeVitals === "function") {
+        return sc.computeVitals(doneInt, deteriorated);
+      }
+
+      const fallback = {
+        stageText: deteriorated ? "Deteriorated" : "Initial",
+        stageClass: deteriorated ? "crit" : "",
+        bp: "—",
+        bpClass: "",
+        hr: "—",
+        hrClass: "",
+        rr: "—",
+        rrClass: "",
+        spo2: "—",
+        spo2Class: "",
+        gcs: "—",
+        gcsClass: "",
+        hstix: "—",
+        hstixClass: "",
+        skin: "—",
+        skinClass: "",
+        extra: ""
+      };
+
+      if (!sc.vitals || typeof sc.vitals !== "object") {
+        return fallback;
+      }
+
+      const base = deteriorated && sc.vitals.deteriorated
+        ? { ...fallback, ...sc.vitals.deteriorated }
+        : { ...fallback, ...(sc.vitals.initial || {}) };
+
+      if (sc.vitals.afterInterventions && typeof sc.vitals.afterInterventions === "object") {
+        Object.keys(sc.vitals.afterInterventions).forEach(intId => {
+          if (doneInt[intId] !== undefined) {
+            Object.assign(base, sc.vitals.afterInterventions[intId]);
+          }
+        });
+      }
+
+      return base;
+    }
+
+    function getFlatItems(sc) {
+      const out = [];
+      (sc.sequenceGroups || []).forEach(g => {
+        (g.items || []).forEach(it => out.push(it));
+      });
+      return out;
+    }
+
+    function findItem(sc, itemId) {
+      return getFlatItems(sc).find(it => it.id === itemId) || getFlatItems(sc)[0];
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove("show"), 2600);
+    }
+
+    function copyTextSafe(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch (e) {
+        /* ignore */
+      }
+      document.body.removeChild(ta);
+    }
+
+    /* =========================================================================
+       4. TIMER & ITEM STAY-DURATION LOGGING
+       ========================================================================= */
+    function updateTimerUI() {
+      const disp = document.getElementById("timerDisplay");
+      const btn = document.getElementById("btnTimerToggle");
+      disp.textContent = fmtTime(state.timerSeconds);
+      if (state.timerRunning) {
+        disp.classList.add("running");
+        btn.textContent = "Pause";
+        btn.className = "btn pause";
+      } else {
+        disp.classList.remove("running");
+        btn.textContent = state.timerSeconds > 0 ? "Resume" : "Start";
+        btn.className = "btn start";
+      }
+    }
+
+    function startTimer() {
+      if (state.timerRunning) return;
+      state.timerRunning = true;
+      updateTimerUI();
+      state.timerInterval = setInterval(() => {
+        state.timerSeconds += 1;
+        updateTimerUI();
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      state.timerRunning = false;
+      clearInterval(state.timerInterval);
+      state.timerInterval = null;
+      updateTimerUI();
+    }
+
+    function finalizeCurrentItemStay() {
+      if (!state.currentSessionEntryId) return;
+      const entry = state.timeLog.find(e => e.id === state.currentSessionEntryId);
+      if (entry) {
+        entry.endSec = state.timerSeconds;
+        entry.staySec = Math.max(0, entry.endSec - entry.startSec);
+        state.assessedItems[entry.itemId] = (state.assessedItems[entry.itemId] || 0) + entry.staySec;
+      }
+      state.currentSessionEntryId = null;
+    }
+
+    function selectItem(itemId) {
+      const sc = getActiveScenario();
+      const target = findItem(sc, itemId);
+      if (!target) return;
+
+      if (!state.timerRunning && !state.trainingCompleted) {
+        startTimer();
+      }
+
+      if (state.selectedItemId !== target.id || !state.currentSessionEntryId) {
+        finalizeCurrentItemStay();
+        const entryId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        state.timeLog.push({
+          id: entryId,
+          type: "assess",
+          itemId: target.id,
+          label: target.title,
+          startSec: state.timerSeconds,
+          endSec: null,
+          staySec: 0
+        });
+        state.currentSessionEntryId = entryId;
+        if (state.assessedItems[target.id] === undefined) {
+          state.assessedItems[target.id] = 0;
+        }
+      }
+
+      if (target.id === "reassess_arrest" && !state.deteriorated) {
+        state.deteriorated = true;
+      }
+
+      state.selectedItemId = target.id;
+      renderAll();
+    }
+
+    function toggleInterventionDone(intId, label, rubricId) {
+      if (!state.timerRunning && !state.trainingCompleted) {
+        startTimer();
+      }
+
+      if (state.doneInterventions[intId] !== undefined) {
+        delete state.doneInterventions[intId];
+        state.timeLog = state.timeLog.filter(e => !(e.type === "interv" && e.intId === intId));
+        showToast(`Unchecked: ${label}`);
+      } else {
+        const ts = state.timerSeconds;
+        state.doneInterventions[intId] = ts;
+        state.timeLog.push({
+          id: `int_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          type: "interv",
+          intId: intId,
+          label: label,
+          startSec: ts,
+          endSec: ts,
+          staySec: 0
+        });
+
+        if ((intId === "airway_suction" || intId === "needle_decomp" || intId === "cpr_aed") && !state.deteriorated) {
+          state.deteriorated = true;
+        }
+        showToast(`Done @ ${fmtTime(ts)}: ${label}`);
+      }
+
+      renderAll();
+    }
+
+    function resetAll() {
+      pauseTimer();
+      const sc = getActiveScenario();
+      const firstItem = getFlatItems(sc)[0];
+      state.timerSeconds = 0;
+      state.deteriorated = false;
+      state.assessedItems = {};
+      state.doneInterventions = {};
+      state.timeLog = [];
+      state.outcomeOverrides = {};
+      state.trainingCompleted = false;
+      state.rubricGrades = {};
+      state.overallRating = "";
+      state.remarks = "";
+      state.selectedItemId = firstItem ? firstItem.id : null;
+      state.currentSessionEntryId = null;
+
+      if (firstItem) {
+        const entryId = `log_init_${Date.now()}`;
+        state.timeLog.push({
+          id: entryId,
+          type: "assess",
+          itemId: firstItem.id,
+          label: firstItem.title,
+          startSec: 0,
+          endSec: null,
+          staySec: 0
+        });
+        state.currentSessionEntryId = entryId;
+        state.assessedItems[firstItem.id] = 0;
+      }
+
+      updateTimerUI();
+      renderAll();
+    }
+
+    /* =========================================================================
+       5. EXPECTED OUTCOMES EVALUATION & UI RENDERING
+       ========================================================================= */
+    function evaluateExpectedOutcomes(sc) {
+      const defs = Array.isArray(sc.expectedOutcomes) && sc.expectedOutcomes.length > 0
+        ? sc.expectedOutcomes
+        : getFlatItems(sc).map(it => ({
+            id: `auto_${it.id}`,
+            category: it.timeCritical ? "Intervention" : "Assessment",
+            text: it.timeCritical ? `${it.btnLabel} (${it.timeCritical.label})` : it.title,
+            requiredItemIds: [it.id],
+            requiredIntIds: it.timeCritical ? [it.timeCritical.intId] : []
+          }));
+
+      const list = defs.map(def => {
+        const reqItems = def.requiredItemIds || [];
+        const reqInts = def.requiredIntIds || [];
+        const itemsDone = reqItems.every(id => state.assessedItems[id] !== undefined);
+        const intsDone = reqInts.every(id => !!state.doneInterventions[id]);
+        const autoAchieved = (reqItems.length > 0 || reqInts.length > 0) && itemsDone && intsDone;
+        const achieved = state.outcomeOverrides[def.id] !== undefined
+          ? state.outcomeOverrides[def.id]
+          : autoAchieved;
+        const category = def.category || (reqInts.length > 0 ? "Intervention" : "Assessment");
+
+        return {
+          ...def,
+          category,
+          achieved
+        };
+      });
+
+      const assessmentList = list.filter(o => o.category === "Assessment");
+      const interventionList = list.filter(o => o.category === "Intervention");
+      const achievedCount = list.filter(o => o.achieved).length;
+      const totalCount = list.length;
+
+      return {
+        list,
+        assessmentList,
+        assessmentAchieved: assessmentList.filter(o => o.achieved).length,
+        interventionList,
+        interventionAchieved: interventionList.filter(o => o.achieved).length,
+        achievedCount,
+        totalCount,
+        allAchieved: totalCount > 0 && achievedCount === totalCount
+      };
+    }
+
+    function renderScenarioSelect() {
+      const sel = document.getElementById("caseSelect");
+      sel.innerHTML = getAllScenarios()
+        .map(s => `<option value="${s.id}" ${s.id === state.activeScenarioId ? "selected" : ""}>${s.title}</option>`)
+        .join("");
+    }
+
+    function renderLeftPane() {
+      const sc = getActiveScenario();
+      const v = resolveScenarioVitals(sc, state.doneInterventions, state.deteriorated);
+
+      const badge = document.getElementById("physStageBadge");
+      badge.textContent = v.stageText;
+      badge.className = `stage-label ${v.stageClass || ""}`;
+
+      document.getElementById("btnStageInitial").className =
+        `stage-btn ${!state.deteriorated ? "active-init" : ""}`;
+      document.getElementById("btnStageDeteriorate").className =
+        `stage-btn ${state.deteriorated ? "active-det" : ""}`;
+
+      document.getElementById("vitalsGrid").innerHTML = `
+        <div class="v-box">
+          <div class="v-lbl">BP</div>
+          <div class="v-val ${v.bpClass || ""}">${v.bp}</div>
+        </div>
+        <div class="v-box">
+          <div class="v-lbl">Heart Rate</div>
+          <div class="v-val ${v.hrClass || ""}">${v.hr}</div>
+        </div>
+        <div class="v-box">
+          <div class="v-lbl">Resp Rate</div>
+          <div class="v-val ${v.rrClass || ""}">${v.rr}</div>
+        </div>
+        <div class="v-box">
+          <div class="v-lbl">SpO2</div>
+          <div class="v-val ${v.spo2Class || ""}">${v.spo2}</div>
+        </div>
+      `;
+
+      document.getElementById("vitalsGridBottom").innerHTML = `
+        <div class="v-box">
+          <div class="v-lbl">LOC / GCS</div>
+          <div class="v-val sm ${v.gcsClass || ""}">${v.gcs}</div>
+        </div>
+        <div class="v-box">
+          <div class="v-lbl">H'stix (BGL)</div>
+          <div class="v-val ${v.hstixClass || ""}">${v.hstix || "—"}</div>
+        </div>
+        <div class="v-box">
+          <div class="v-lbl">Skin</div>
+          <div class="v-val sm ${v.skinClass || ""}">${v.skin}</div>
+        </div>
+      `;
+
+      const flowHtml = (sc.sequenceGroups || [])
+        .map(grp => {
+          const itemCount = (grp.items || []).length;
+          const blockSpanCls = itemCount === 1 ? "span-1" : "span-full";
+          const gridColsCls = itemCount === 1 ? "cols-1" : itemCount >= 3 ? "cols-3" : "";
+
+          const btns = (grp.items || [])
+            .map(it => {
+              const isSelected = it.id === state.selectedItemId;
+              const tc = it.timeCritical;
+              const tcDone = tc ? state.doneInterventions[tc.intId] !== undefined : false;
+              const visited = state.assessedItems[it.id] !== undefined;
+
+              let btnCls = "flow-item-btn";
+              if (tc) {
+                btnCls += tcDone ? " tc-done" : " time-critical";
+              }
+              if (isSelected) {
+                btnCls += " selected";
+              }
+
+              let badgeHtml = "";
+              if (tc && !tcDone) {
+                badgeHtml = `<span class="fib-badge crit">TX!</span>`;
+              } else if (tc && tcDone) {
+                badgeHtml = `<span class="fib-badge done">✓</span>`;
+              } else if (isSelected) {
+                badgeHtml = `<span class="fib-badge active-now">NOW</span>`;
+              } else if (visited) {
+                badgeHtml = `<span class="fib-badge done">✓</span>`;
+              }
+
+              return `
+                <button type="button" class="${btnCls}" data-item-id="${it.id}">
+                  <span class="fib-name">${it.btnLabel}</span>
+                  ${badgeHtml}
+                </button>
+              `;
+            })
+            .join("");
+
+          return `
+            <div class="flow-phase-block ${blockSpanCls}">
+              <div class="flow-phase-title">${grp.groupTitle}</div>
+              <div class="item-btn-grid ${gridColsCls}">${btns}</div>
+            </div>
+          `;
+        })
+        .join("");
+
+      document.getElementById("leftFlowScroll").innerHTML = flowHtml;
+    }
+
+    function renderDetailSpotlight() {
+      const sc = getActiveScenario();
+      const item = findItem(sc, state.selectedItemId);
+      const container = document.getElementById("detailSpotlight");
+
+      if (!item) {
+        container.innerHTML = "";
+        return;
+      }
+
+      const bulletsHtml = (item.bullets || [])
+        .map(b => `<li>${b}</li>`)
+        .join("");
+
+      const detailHtml = item.detail
+        ? `<div class="ds-readout-detail">${item.detail}</div>`
+        : "";
+
+      let tcHtml = "";
+      if (item.timeCritical) {
+        const tc = item.timeCritical;
+        const doneAt = state.doneInterventions[tc.intId];
+        const isDone = doneAt !== undefined;
+        tcHtml = `
+          <div class="tc-box ${isDone ? "done" : ""}">
+            <div class="tc-box-text">
+              ${isDone ? `✓ ${tc.label} (@ ${fmtTime(doneAt)})` : `TIME-CRITICAL: ${tc.actionText}`}
+            </div>
+            <button
+              type="button"
+              class="tc-action-btn ${isDone ? "done" : ""}"
+              data-tc-int-id="${tc.intId}"
+              data-tc-label="${tc.label.replace(/"/g, "&quot;")}"
+              data-tc-rubric="${tc.rubricId || ""}"
+            >
+              ${isDone ? "✓ Completed (Undo)" : "Mark Done"}
+            </button>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="ds-top">
+          <div>
+            <div class="ds-kicker">${item.phaseLabel || ""}</div>
+            <div class="ds-title">${item.title}</div>
+          </div>
+        </div>
+
+        <div class="ds-readout">
+          <div class="ds-readout-lbl">Quick Student Response</div>
+          <ul class="ds-readout-list">${bulletsHtml}</ul>
+          ${detailHtml}
+        </div>
+
+        ${tcHtml}
+      `;
+    }
+
+    function renderTimeLog() {
+      const card = document.getElementById("timeLogCard");
+      if (!state.trainingCompleted) {
+        card.style.display = "none";
+        return;
+      }
+
+      card.style.display = "flex";
+      const sc = getActiveScenario();
+      const evalRes = evaluateExpectedOutcomes(sc);
+
+      document.getElementById("logCountBadge").textContent = `${state.timeLog.length} logged`;
+
+      const renderOutcomeItem = o => `
+        <button type="button" class="outcome-row ${o.achieved ? "achieved" : "missed"}" data-outcome-id="${o.id}">
+          <span class="outcome-label">${o.text}</span>
+          <span class="outcome-pill ${o.achieved ? "achieved" : "missed"}">
+            ${o.achieved ? "✓ Achieved" : "✗ Missed"}
+          </span>
+        </button>
+      `;
+
+      document.getElementById("outcomesSummaryWrap").innerHTML = `
+        <div class="outcomes-box">
+          <div class="outcomes-banner ${evalRes.allAchieved ? "all-ok" : "partial"}">
+            <span>
+              ${evalRes.allAchieved
+                ? "✓ ALL EXPECTED FINDINGS & LEARNING OUTCOMES ACHIEVED"
+                : `⚠ EXPECTED FINDINGS & LEARNING OUTCOMES: ${evalRes.achievedCount}/${evalRes.totalCount} ACHIEVED (${evalRes.totalCount - evalRes.achievedCount} MISSED)`}
+            </span>
+          </div>
+
+          <div class="outcome-group-block">
+            <div class="outcome-group-head">
+              <span>Assessment</span>
+              <span>${evalRes.assessmentAchieved} / ${evalRes.assessmentList.length} Achieved</span>
+            </div>
+            <div class="outcomes-grid">
+              ${evalRes.assessmentList.map(renderOutcomeItem).join("")}
+            </div>
+          </div>
+
+          <div class="outcome-group-block">
+            <div class="outcome-group-head">
+              <span>Intervention</span>
+              <span>${evalRes.interventionAchieved} / ${evalRes.interventionList.length} Achieved</span>
+            </div>
+            <div class="outcomes-grid">
+              ${evalRes.interventionList.map(renderOutcomeItem).join("")}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const logHtml = state.timeLog.length === 0
+        ? `<div class="log-row"><span class="log-text">No items logged.</span></div>`
+        : state.timeLog
+            .map(entry => {
+              if (entry.type === "interv") {
+                return `
+                  <div class="log-row">
+                    <span class="log-time">${fmtTime(entry.startSec)}</span>
+                    <span class="log-badge interv">Intervention</span>
+                    <span class="log-text">${entry.label}</span>
+                  </div>
+                `;
+              }
+              const endStr = entry.endSec !== null ? fmtTime(entry.endSec) : fmtTime(state.timerSeconds);
+              const stayVal = entry.endSec !== null ? entry.staySec : Math.max(0, state.timerSeconds - entry.startSec);
+              return `
+                <div class="log-row">
+                  <span class="log-time">${fmtTime(entry.startSec)} → ${endStr}</span>
+                  <span class="log-dur">Stayed ${fmtDuration(stayVal)}</span>
+                  <span class="log-badge assess">Assessment</span>
+                  <span class="log-text">${entry.label}</span>
+                </div>
+              `;
+            })
+            .join("");
+
+      document.getElementById("timeLogList").innerHTML = logHtml;
+    }
+
+    function renderRubric() {
+      const wrap = document.getElementById("rubricSectionWrap");
+      if (!state.trainingCompleted) {
+        wrap.style.display = "none";
+        return;
+      }
+
+      wrap.style.display = "flex";
+      const sc = getActiveScenario();
+      const scales = [
+        { key: "Excellent", cls: "sel-exc" },
+        { key: "Good", cls: "sel-good" },
+        { key: "Pass", cls: "sel-pass" },
+        { key: "Fail", cls: "sel-fail" }
+      ];
+
+      const sectionsHtml = RUBRIC_SECTIONS.map(sec => {
+        const rowsHtml = sec.items
+          .map(it => {
+            const current = state.rubricGrades[it.id] || "";
+            const btnsHtml = scales
+              .map(s => `
+                <button
+                  type="button"
+                  class="scale-btn ${current === s.key ? s.cls : ""}"
+                  data-rubric-item="${it.id}"
+                  data-rubric-val="${s.key}"
+                >${s.key}</button>
+              `)
+              .join("");
+
+            return `
+              <div class="rubric-row">
+                <div class="rubric-item-text">${it.text}</div>
+                <div class="scale-btns">${btnsHtml}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        return `
+          <div class="rubric-section">
+            <div class="rubric-sec-head">
+              <span class="rubric-sec-title">${sec.title}</span>
+            </div>
+            ${rowsHtml}
+          </div>
+        `;
+      }).join("");
+
+      const overallOptions = [
+        { val: "A - Excellent", cls: "sel-exc" },
+        { val: "B - Good", cls: "sel-good" },
+        { val: "C - Pass", cls: "sel-pass" },
+        { val: "D - Fail", cls: "sel-fail" }
+      ];
+
+      const overallHtml = overallOptions
+        .map(o => `
+          <button
+            type="button"
+            class="scale-btn ${state.overallRating === o.val ? o.cls : ""}"
+            data-overall-val="${o.val}"
+          >${o.val}</button>
+        `)
+        .join("");
+
+      wrap.innerHTML = `
+        <div class="panel-head">
+          <span class="panel-title">GFS Form No. OM165 — Air Crewman Officer Training Grading Rubric</span>
+        </div>
+
+        <div class="meta-inputs">
+          <input
+            type="text"
+            id="inpCandidateName"
+            class="gs-input"
+            placeholder="Candidate Name"
+            value="${(state.candidateName || "").replace(/"/g, "&quot;")}"
+          />
+          <input
+            type="date"
+            id="inpEvalDate"
+            class="gs-input"
+            value="${state.evalDate}"
+          />
+        </div>
+
+        ${sectionsHtml}
+
+        <div class="rubric-section">
+          <div class="rubric-sec-head">
+            <span class="rubric-sec-title">Overall Rating &amp; Remarks (${sc.scenarioNumber || sc.title})</span>
+          </div>
+          <div class="rubric-row">
+            <div class="rubric-item-text">Overall Rating</div>
+            <div class="scale-btns">${overallHtml}</div>
+          </div>
+          <div style="padding: 10px 13px;">
+            <textarea id="inpRemarks" class="notes-area" placeholder="Remarks...">${state.remarks || ""}</textarea>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPrintDocument() {
+      const sc = getActiveScenario();
+      const evalRes = evaluateExpectedOutcomes(sc);
+      const checkMark = (itemId, val) => (state.rubricGrades[itemId] === val ? "✔" : "");
+
+      const rubricRowsHtml = RUBRIC_SECTIONS.map(sec => {
+        const headerRow = `<tr class="pdf-sec-row"><td colspan="5">${sec.title}</td></tr>`;
+        const itemRows = sec.items
+          .map(it => `
+            <tr>
+              <td>${it.text}</td>
+              <td class="center">${checkMark(it.id, "Excellent")}</td>
+              <td class="center">${checkMark(it.id, "Good")}</td>
+              <td class="center">${checkMark(it.id, "Pass")}</td>
+              <td class="center">${checkMark(it.id, "Fail")}</td>
+            </tr>
+          `)
+          .join("");
+        return headerRow + itemRows;
+      }).join("");
+
+      const outcomeRowsHtml = evalRes.list
+        .map(o => `
+          <tr>
+            <td><strong>${o.category}</strong></td>
+            <td>${o.text}</td>
+            <td class="center">${o.achieved ? "✔ Achieved" : "✗ Missed"}</td>
+          </tr>
+        `)
+        .join("");
+
+      const logRowsHtml = state.timeLog.length === 0
+        ? `<tr><td colspan="4">No actions recorded.</td></tr>`
+        : state.timeLog
+            .map(entry => {
+              if (entry.type === "interv") {
+                return `
+                  <tr>
+                    <td>${fmtTime(entry.startSec)}</td>
+                    <td>—</td>
+                    <td>Intervention</td>
+                    <td>${entry.label}</td>
+                  </tr>
+                `;
+              }
+              const endStr = entry.endSec !== null ? fmtTime(entry.endSec) : fmtTime(state.timerSeconds);
+              const stayVal = entry.endSec !== null ? entry.staySec : Math.max(0, state.timerSeconds - entry.startSec);
+              return `
+                <tr>
+                  <td>${fmtTime(entry.startSec)} → ${endStr}</td>
+                  <td>${fmtDuration(stayVal)}</td>
+                  <td>Assessment</td>
+                  <td>${entry.label}</td>
+                </tr>
+              `;
+            })
+            .join("");
+
+      document.getElementById("printDocument").innerHTML = `
+        <!-- FRONT PAGE (PAGE 1): GFS FORM OM165 GRADING RUBRIC -->
+        <div class="pdf-page-1">
+          <div class="pdf-header">
+            <div>
+              <div class="pdf-title">Government Flying Service — Air Crewman Officer Training</div>
+              <div class="pdf-sub">Form No.: OM165 · HRMT Assessment Grading Rubric</div>
+            </div>
+            <div class="pdf-sub">Page 1 of 2 (Front)</div>
+          </div>
+
+          <div class="pdf-meta-grid">
+            <div><strong>Candidate:</strong> ${state.candidateName || "________________"}</div>
+            <div><strong>Scenario:</strong> ${sc.scenarioNumber || sc.title}</div>
+            <div><strong>Date:</strong> ${state.evalDate || "________"}</div>
+            <div><strong>Total Time:</strong> ${fmtTime(state.timerSeconds)}</div>
+          </div>
+
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th>Assessment Component</th>
+                <th class="center">Excellent</th>
+                <th class="center">Good</th>
+                <th class="center">Pass</th>
+                <th class="center">Fail</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rubricRowsHtml}
+            </tbody>
+          </table>
+
+          <div class="pdf-footer-box">
+            <div style="margin-bottom: 5px;">
+              <strong>Overall Rating:</strong>
+              &nbsp;&nbsp;[ ${state.overallRating === "A - Excellent" ? "✔" : " "} ] A - Excellent
+              &nbsp;&nbsp;[ ${state.overallRating === "B - Good" ? "✔" : " "} ] B - Good
+              &nbsp;&nbsp;[ ${state.overallRating === "C - Pass" ? "✔" : " "} ] C - Pass
+              &nbsp;&nbsp;[ ${state.overallRating === "D - Fail" ? "✔" : " "} ] D - Fail
+            </div>
+            <div><strong>Remarks:</strong> ${state.remarks || "—"}</div>
+          </div>
+        </div>
+
+        <!-- BACK PAGE (PAGE 2): CHRONOLOGICAL TIME LOG & EXPECTED OUTCOMES -->
+        <div class="pdf-page-2">
+          <div class="pdf-header">
+            <div>
+              <div class="pdf-title">Chronological Time Log &amp; Expected Outcomes</div>
+              <div class="pdf-sub">${sc.title} · Candidate: ${state.candidateName || "—"}</div>
+            </div>
+            <div class="pdf-sub">Page 2 of 2 (Back)</div>
+          </div>
+
+          <div class="pdf-outcome-summary">
+            ${evalRes.allAchieved
+              ? `ALL EXPECTED FINDINGS & LEARNING OUTCOMES ACHIEVED (${evalRes.achievedCount}/${evalRes.totalCount})`
+              : `EXPECTED FINDINGS & LEARNING OUTCOMES: ${evalRes.achievedCount}/${evalRes.totalCount} ACHIEVED — Assessment: ${evalRes.assessmentAchieved}/${evalRes.assessmentList.length} | Intervention: ${evalRes.interventionAchieved}/${evalRes.interventionList.length}`}
+          </div>
+
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th style="width: 95px;">Category</th>
+                <th>Expected Finding / Learning Outcome</th>
+                <th class="center" style="width: 85px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${outcomeRowsHtml}
+            </tbody>
+          </table>
+
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th style="width: 110px;">Time Window</th>
+                <th style="width: 80px;">Stay Duration</th>
+                <th style="width: 90px;">Type</th>
+                <th>Assessment / Intervention Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${logRowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderAll() {
+      renderScenarioSelect();
+      renderLeftPane();
+      renderDetailSpotlight();
+      renderTimeLog();
+      renderRubric();
+    }
+
+    /* =========================================================================
+       6. EVENT LISTENERS & INITIALIZATION
+       ========================================================================= */
+    function importScenarioFromText(rawText) {
+      try {
+        const parsed = JSON.parse(rawText);
+        if (!parsed || !parsed.title || !Array.isArray(parsed.sequenceGroups)) {
+          showToast("Invalid JSON: requires title and sequenceGroups");
+          return false;
+        }
+        if (!parsed.id) {
+          parsed.id = `custom_${Date.now()}`;
+        }
+        const existingIdx = state.customScenarios.findIndex(s => s.id === parsed.id);
+        if (existingIdx >= 0) {
+          state.customScenarios[existingIdx] = parsed;
+        } else {
+          state.customScenarios.push(parsed);
+        }
+        saveCustomScenarios(state.customScenarios);
+        state.activeScenarioId = parsed.id;
+        document.getElementById("jsonModal").classList.remove("open");
+        resetAll();
+        showToast(`Loaded: ${parsed.title}`);
+        return true;
+      } catch (err) {
+        showToast("JSON parse error — check syntax");
+        return false;
+      }
+    }
+
+    document.getElementById("caseSelect").addEventListener("change", e => {
+      state.activeScenarioId = e.target.value;
+      resetAll();
+    });
+
+    document.getElementById("btnTimerToggle").addEventListener("click", () => {
+      if (state.timerRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    });
+
+    document.getElementById("btnTimerReset").addEventListener("click", () => {
+      const btn = document.getElementById("btnTimerReset");
+      if (!state.resetPending) {
+        state.resetPending = true;
+        btn.textContent = "Confirm Reset";
+        btn.className = "btn danger";
+        clearTimeout(btn._rt);
+        btn._rt = setTimeout(() => {
+          state.resetPending = false;
+          btn.textContent = "Reset";
+          btn.className = "btn";
+        }, 3000);
+        return;
+      }
+      clearTimeout(btn._rt);
+      state.resetPending = false;
+      btn.textContent = "Reset";
+      btn.className = "btn";
+      resetAll();
+      showToast("Session reset");
+    });
+
+    document.getElementById("btnStageInitial").addEventListener("click", () => {
+      state.deteriorated = false;
+      renderLeftPane();
+    });
+
+    document.getElementById("btnStageDeteriorate").addEventListener("click", () => {
+      state.deteriorated = true;
+      renderLeftPane();
+    });
+
+    document.getElementById("leftFlowScroll").addEventListener("click", e => {
+      const btn = e.target.closest("[data-item-id]");
+      if (!btn) return;
+      selectItem(btn.getAttribute("data-item-id"));
+    });
+
+    document.getElementById("detailSpotlight").addEventListener("click", e => {
+      const btn = e.target.closest("[data-tc-int-id]");
+      if (!btn) return;
+      toggleInterventionDone(
+        btn.getAttribute("data-tc-int-id"),
+        btn.getAttribute("data-tc-label"),
+        btn.getAttribute("data-tc-rubric")
+      );
+    });
+
+    document.getElementById("btnCompleteTraining").addEventListener("click", () => {
+      finalizeCurrentItemStay();
+      pauseTimer();
+      state.trainingCompleted = true;
+      renderAll();
+      const logEl = document.getElementById("timeLogCard");
+      if (logEl) {
+        logEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      showToast("Training completed — Time Log & Grading Rubric ready");
+    });
+
+    document.getElementById("outcomesSummaryWrap").addEventListener("click", e => {
+      const row = e.target.closest("[data-outcome-id]");
+      if (!row) return;
+      const oid = row.getAttribute("data-outcome-id");
+      const sc = getActiveScenario();
+      const evalRes = evaluateExpectedOutcomes(sc);
+      const found = evalRes.list.find(x => x.id === oid);
+      if (found) {
+        state.outcomeOverrides[oid] = !found.achieved;
+        renderTimeLog();
+      }
+    });
+
+    document.getElementById("rubricSectionWrap").addEventListener("click", e => {
+      const gradeBtn = e.target.closest("[data-rubric-item]");
+      if (gradeBtn) {
+        const itemId = gradeBtn.getAttribute("data-rubric-item");
+        const val = gradeBtn.getAttribute("data-rubric-val");
+        if (state.rubricGrades[itemId] === val) {
+          delete state.rubricGrades[itemId];
+        } else {
+          state.rubricGrades[itemId] = val;
+        }
+        renderRubric();
+        return;
+      }
+
+      const ovBtn = e.target.closest("[data-overall-val]");
+      if (ovBtn) {
+        const val = ovBtn.getAttribute("data-overall-val");
+        state.overallRating = state.overallRating === val ? "" : val;
+        renderRubric();
+      }
+    });
+
+    document.getElementById("rubricSectionWrap").addEventListener("input", e => {
+      if (e.target.id === "inpCandidateName") {
+        state.candidateName = e.target.value;
+      } else if (e.target.id === "inpEvalDate") {
+        state.evalDate = e.target.value;
+      } else if (e.target.id === "inpRemarks") {
+        state.remarks = e.target.value;
+      }
+    });
+
+    document.getElementById("btnExport").addEventListener("click", () => {
+      if (!state.trainingCompleted) {
+        finalizeCurrentItemStay();
+        pauseTimer();
+        state.trainingCompleted = true;
+        renderAll();
+      }
+      renderPrintDocument();
+      setTimeout(() => window.print(), 80);
+    });
+
+    document.getElementById("btnJsonModal").addEventListener("click", () => {
+      const sc = getActiveScenario();
+      const exportObj = { ...sc };
+      if (!exportObj.vitals && typeof sc.computeVitals === "function") {
+        exportObj.vitals = {
+          initial: sc.computeVitals({}, false),
+          deteriorated: sc.computeVitals({}, true)
+        };
+      }
+      delete exportObj.computeVitals;
+      document.getElementById("jsonTextarea").value = JSON.stringify(exportObj, null, 2);
+      document.getElementById("jsonModal").classList.add("open");
+    });
+
+    document.getElementById("btnCloseJson").addEventListener("click", () => {
+      document.getElementById("jsonModal").classList.remove("open");
+    });
+
+    document.getElementById("jsonModal").addEventListener("click", e => {
+      if (e.target.id === "jsonModal") {
+        document.getElementById("jsonModal").classList.remove("open");
+      }
+    });
+
+    document.getElementById("btnUploadJsonFile").addEventListener("click", () => {
+      const fileInput = document.getElementById("jsonFileInput");
+      fileInput.value = "";
+      fileInput.click();
+    });
+
+    document.getElementById("jsonFileInput").addEventListener("change", e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const content = String(ev.target.result || "");
+        document.getElementById("jsonTextarea").value = content;
+        importScenarioFromText(content);
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById("btnCopyJson").addEventListener("click", () => {
+      copyTextSafe(document.getElementById("jsonTextarea").value);
+      showToast("Scenario JSON copied");
+    });
+
+    document.getElementById("btnApplyJson").addEventListener("click", () => {
+      importScenarioFromText(document.getElementById("jsonTextarea").value);
+    });
+
+    // Initialize first assessment entry cleanly on load
+    resetAll();
+  </script>
+</body>
+</html>
