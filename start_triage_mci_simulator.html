@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>START Triage MCI Simulator — Multi-Vehicle Transit Collision</title>
+  <style>
+    /* ==========================================================================
+       CSS VARIABLES & THEME TOKENS
+       ========================================================================== */
+    :root {
+      --bg-app: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-panel-alt: #0b1120;
+      --bg-card: #263348;
+      --border-subtle: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      /* START Triage Official Colors */
+      --triage-green: #16a34a;
+      --triage-green-dark: #14532d;
+      --triage-green-glow: rgba(22, 163, 74, 0.35);
+
+      --triage-yellow: #eab308;
+      --triage-yellow-dark: #713f12;
+      --triage-yellow-text: #0f172a;
+      --triage-yellow-glow: rgba(234, 179, 8, 0.35);
+
+      --triage-red: #dc2626;
+      --triage-red-dark: #7f1d1d;
+      --triage-red-glow: rgba(220, 38, 38, 0.4);
+
+      --triage-black: #18181b;
+      --triage-black-border: #71717a;
+      --triage-black-glow: rgba(161, 161, 170, 0.3);
+
+      --accent-blue: #38bdf8;
+      --accent-amber: #f59e0b;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+      --shadow-elevated: 0 12px 30px -8px rgba(0, 0, 0, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ==========================================================================
+       HEADER & MCI SCENE BANNER
+       ========================================================================== */
+    .top-bar {
+      background: linear-gradient(180deg, #090d16 0%, #162033 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scene-svg-wrapper {
+      width: 100%;
+      height: 110px;
+      position: relative;
+      display: block;
+    }
+
+    .header-overlay {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(6px);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ems-badge {
+      background: var(--triage-red);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      box-shadow: 0 0 12px var(--triage-red-glow);
+      animation: pulse-badge 2s infinite;
+    }
+
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.72; }
+    }
+
+    .brand-title h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-title p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ==========================================================================
+       BUTTONS & CONTROLS
+       ========================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 15px;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.16s ease;
+      user-select: none;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border-color: var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+
+    .btn-lg {
+      padding: 13px 24px;
+      font-size: 1rem;
+      border-radius: var(--radius-md);
+    }
+
+    /* ==========================================================================
+       MAIN CONTAINER & SCREENS
+       ========================================================================== */
+    .main-container {
+      flex: 1;
+      width: 100%;
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      display: none;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       START / SETUP SCREEN
+       ========================================================================== */
+    .setup-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-elevated);
+      max-width: 820px;
+      margin: 12px auto;
+    }
+
+    .setup-header {
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 18px;
+      margin-bottom: 22px;
+    }
+
+    .setup-header h2 {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+
+    .setup-header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .option-group {
+      background: var(--bg-panel-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    .option-group label.group-label {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-blue);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .radio-choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+      margin-bottom: 6px;
+      transition: background 0.15s;
+    }
+
+    .radio-choice:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .radio-choice input[type="radio"] {
+      margin-top: 3px;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+    }
+
+    .radio-choice strong {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+
+    .radio-choice span {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .triage-legend-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .legend-pill {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .legend-pill small {
+      display: block;
+      font-weight: 400;
+      font-size: 0.72rem;
+      opacity: 0.9;
+      margin-top: 2px;
+    }
+
+    /* ==========================================================================
+       ACTIVE TRIAGE GAME HUD & WORKSPACE
+       ========================================================================== */
+    .hud-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      margin-bottom: 18px;
+    }
+
+    .hud-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+    }
+
+    .hud-stat .label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .hud-stat .value {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+      background: var(--bg-panel-alt);
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .progress-track {
+      flex: 1;
+      min-width: 140px;
+      height: 8px;
+      background: var(--bg-panel-alt);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0284c7, #38bdf8);
+      transition: width 0.3s ease;
+    }
+
+    /* Patient Assessment Grid */
+    .triage-workspace {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Left Column: Patient Visualizer Card */
+    .patient-visual-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-elevated);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .patient-id-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .patient-number {
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-blue);
+      background: rgba(56, 189, 248, 0.12);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    .patient-demo {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .avatar-stage {
+      background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      height: 230px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 14px;
+    }
+
+    /* Stamped Triage Tag Overlay on Avatar */
+    .stamped-tag-overlay {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 900;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transform: rotate(6deg) scale(0.9);
+      opacity: 0;
+      transition: all 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .stamped-tag-overlay.visible {
+      opacity: 1;
+      transform: rotate(4deg) scale(1);
+    }
+
+    .mini-status-badges {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .status-chip {
+      background: var(--bg-panel-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 7px 9px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Right Column: Clinical Findings & START Steps */
+    .clinical-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-elevated);
+    }
+
+    .presentation-box {
+      background: var(--bg-panel-alt);
+      border-left: 4px solid var(--accent-blue);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 18px;
+    }
+
+    .presentation-box .sec-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .presentation-box p {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* 4-Step START Assessment Grid */
+    .rpm-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .rpm-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 13px 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .rpm-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .rpm-value {
+      font-size: 0.96rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    /* Animated physiological indicators */
+    .pulse-wave {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #38bdf8;
+    }
+    .anim-fast { animation: beat 0.45s infinite alternate; background: #f87171; }
+    .anim-normal { animation: beat 0.9s infinite alternate; background: #4ade80; }
+    .anim-none { background: #71717a; opacity: 0.5; }
+
+    @keyframes beat {
+      from { transform: scale(0.8); opacity: 0.6; }
+      to { transform: scale(1.35); opacity: 1; }
+    }
+
+    /* ==========================================================================
+       TRIAGE TAG ACTION BUTTONS
+       ========================================================================== */
+    .tag-prompt {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .triage-tags-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .tag-btn {
+      position: relative;
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      padding: 14px 10px 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Physical Triage Tag Punch-Hole Detail */
+    .tag-btn::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--bg-panel);
+      border: 1px solid rgba(0, 0, 0, 0.35);
+      margin-bottom: 2px;
+    }
+
+    .tag-btn:hover:not(:disabled) {
+      transform: translateY(-3px);
+      filter: brightness(1.08);
+    }
+
+    .tag-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .tag-btn .tag-color-name {
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+    }
+
+    .tag-btn .tag-desc {
+      font-size: 0.74rem;
+      font-weight: 600;
+      opacity: 0.92;
+    }
+
+    .tag-btn .key-hint {
+      font-size: 0.68rem;
+      opacity: 0.75;
+      margin-top: 2px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .tag-green {
+      background: var(--triage-green);
+      color: #fff;
+      border-color: #4ade80;
+    }
+    .tag-green:hover:not(:disabled) { box-shadow: 0 8px 20px var(--triage-green-glow); }
+
+    .tag-yellow {
+      background: var(--triage-yellow);
+      color: var(--triage-yellow-text);
+      border-color: #fef08a;
+    }
+    .tag-yellow:hover:not(:disabled) { box-shadow: 0 8px 20px var(--triage-yellow-glow); }
+
+    .tag-red {
+      background: var(--triage-red);
+      color: #fff;
+      border-color: #f87171;
+    }
+    .tag-red:hover:not(:disabled) { box-shadow: 0 8px 20px var(--triage-red-glow); }
+
+    .tag-black {
+      background: var(--triage-black);
+      color: #f4f4f5;
+      border-color: var(--triage-black-border);
+    }
+    .tag-black:hover:not(:disabled) { box-shadow: 0 8px 20px var(--triage-black-glow); }
+
+    /* ==========================================================================
+       TRAINING MODE IMMEDIATE FEEDBACK DRAWER
+       ========================================================================== */
+    .feedback-banner {
+      margin-top: 18px;
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .feedback-banner.visible {
+      display: block;
+    }
+
+    .feedback-correct {
+      background: rgba(22, 163, 74, 0.16);
+      border: 1px solid #22c55e;
+    }
+
+    .feedback-incorrect {
+      background: rgba(220, 38, 38, 0.18);
+      border: 1px solid #ef4444;
+    }
+
+    .feedback-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 10px;
+    }
+
+    .feedback-title {
+      font-weight: 800;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feedback-rationale {
+      font-size: 0.92rem;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+    }
+
+    /* ==========================================================================
+       DEBRIEF / RESULTS SCREEN
+       ========================================================================== */
+    .debrief-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 26px;
+      box-shadow: var(--shadow-elevated);
+    }
+
+    .stats-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+      margin: 20px 0;
+    }
+
+    .stat-box {
+      background: var(--bg-panel-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-box .big-num {
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    .stat-box .stat-lbl {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: var(--bg-panel-alt);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-blue);
+      color: #0f172a;
+      border-color: var(--accent-blue);
+    }
+
+    .review-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    table.review-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      text-align: left;
+    }
+
+    table.review-table th {
+      background: var(--bg-panel-alt);
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.74rem;
+      letter-spacing: 0.05em;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    table.review-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    table.review-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .pill-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 800;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+    }
+
+    /* ==========================================================================
+       START ALGORITHM REFERENCE MODAL
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.8);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      max-width: 760px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 22px;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    /* ==========================================================================
+       RESPONSIVE BREAKPOINTS
+       ========================================================================== */
+    @media (max-width: 860px) {
+      .triage-workspace {
+        grid-template-columns: 1fr;
+      }
+      .avatar-stage {
+        height: 180px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .triage-tags-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .rpm-grid {
+        grid-template-columns: 1fr;
+      }
+      .triage-legend-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .scene-svg-wrapper {
+        height: 85px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       TOP HEADER & CUSTOM INLINE SVG MCI SCENE BACKDROP
+       ======================================================================== -->
+  <header class="top-bar">
+    <!-- Illustrated Multi-Vehicle Transit Collision Scene (Bus + Tanker) -->
+    <svg class="scene-svg-wrapper" viewBox="0 0 1200 130" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#060913" />
+          <stop offset="100%" stop-color="#17233b" />
+        </linearGradient>
+        <radialGradient id="redBeacon" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ef4444" stop-opacity="0.65" />
+          <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="blueBeacon" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+
+      <!-- Night Sky -->
+      <rect width="1200" height="130" fill="url(#skyGrad)" />
+
+      <!-- Emergency Light Glows -->
+      <circle cx="240" cy="68" r="95" fill="url(#redBeacon)">
+        <animate attributeName="opacity" values="0.2;0.95;0.2" dur="1.1s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="960" cy="68" r="95" fill="url(#blueBeacon)">
+        <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.1s" repeatCount="indefinite" />
+      </circle>
+
+      <!-- Distant City / Overpass Silhouette -->
+      <path d="M0 95 L120 95 L120 65 L175 65 L175 95 L320 95 L320 55 L360 55 L360 95 L880 95 L880 60 L940 60 L940 95 L1200 95 L1200 130 L0 130 Z" fill="#0d1424" />
+
+      <!-- Wet Highway Surface -->
+      <rect x="0" y="96" width="1200" height="34" fill="#0b101d" />
+      <line x1="0" y1="112" x2="1200" y2="112" stroke="#334155" stroke-width="2" stroke-dasharray="24 18" />
+
+      <!-- Ambulance Silhouette Left -->
+      <g transform="translate(175, 62)">
+        <rect x="0" y="10" width="68" height="26" rx="4" fill="#1e293b" stroke="#475569" stroke-width="1.5" />
+        <rect x="64" y="16" width="20" height="20" rx="3" fill="#1e293b" stroke="#475569" stroke-width="1.5" />
+        <rect x="28" y="6" width="10" height="4" rx="1" fill="#ef4444" />
+        <path d="M26 23 H38 M32 17 V29" stroke="#ef4444" stroke-width="3" />
+        <circle cx="18" cy="37" r="6" fill="#090d16" stroke="#64748b" stroke-width="2" />
+        <circle cx="70" cy="37" r="6" fill="#090d16" stroke="#64748b" stroke-width="2" />
+      </g>
+
+      <!-- Jackknifed Fuel Tanker (Center-Right) -->
+      <g transform="translate(615, 48) rotate(-4)">
+        <rect x="0" y="8" width="145" height="36" rx="16" fill="#334155" stroke="#64748b" stroke-width="2" />
+        <rect x="25" y="16" width="95" height="8" rx="3" fill="#f59e0b" opacity="0.7" />
+        <text x="72" y="34" fill="#cbd5e1" font-size="9" font-weight="bold" text-anchor="middle" letter-spacing="2">FLAMMABLE</text>
+        <circle cx="24" cy="46" r="7" fill="#090d16" stroke="#64748b" stroke-width="2" />
+        <circle cx="42" cy="46" r="7" fill="#090d16" stroke="#64748b" stroke-width="2" />
+        <circle cx="122" cy="46" r="7" fill="#090d16" stroke="#64748b" stroke-width="2" />
+      </g>
+
+      <!-- Passenger Transit Bus Impacted (Center-Left) -->
+      <g transform="translate(425, 46) rotate(3)">
+        <rect x="0" y="6" width="185" height="42" rx="6" fill="#1e293b" stroke="#94a3b8" stroke-width="2" />
+        <!-- Bus Windows -->
+        <rect x="14" y="13" width="22" height="14" rx="2" fill="#0f172a" stroke="#475569" />
+        <rect x="42" y="13" width="22" height="14" rx="2" fill="#0f172a" stroke="#475569" />
+        <rect x="70" y="13" width="22" height="14" rx="2" fill="#0f172a" stroke="#475569" />
+        <rect x="98" y="13" width="22" height="14" rx="2" fill="#0f172a" stroke="#475569" />
+        <rect x="126" y="13" width="22" height="14" rx="2" fill="#0f172a" stroke="#475569" />
+        <!-- Front Impact Crumple & Hazard Spark -->
+        <polygon points="180,10 194,22 182,32 193,42 178,48" fill="#f59e0b" opacity="0.85" />
+        <circle cx="36" cy="50" r="8" fill="#090d16" stroke="#64748b" stroke-width="2" />
+        <circle cx="148" cy="50" r="8" fill="#090d16" stroke="#64748b" stroke-width="2" />
+      </g>
+
+      <!-- Smoke Plumes -->
+      <g fill="#475569" opacity="0.28">
+        <circle cx="605" cy="36" r="18">
+          <animate attributeName="cy" values="40;22;40" dur="4s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="624" cy="26" r="24">
+          <animate attributeName="cy" values="30;12;30" dur="5s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="588" cy="24" r="15" />
+      </g>
+
+      <!-- Fire / Rescue Engine Right -->
+      <g transform="translate(920, 58)">
+        <rect x="0" y="10" width="92" height="28" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1.5" />
+        <rect x="12" y="5" width="64" height="4" fill="#94a3b8" />
+        <circle cx="20" cy="40" r="7" fill="#090d16" stroke="#64748b" stroke-width="2" />
+        <circle cx="72" cy="40" r="7" fill="#090d16" stroke="#64748b" stroke-width="2" />
+      </g>
+    </svg>
+
+    <div class="header-overlay">
+      <div class="brand-title">
+        <span class="ems-badge">MCI Active</span>
+        <div>
+          <h1>START Triage Field Simulator</h1>
+          <p>Scenario: Multi-Vehicle Transit Collision (30 Casualties)</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="btn btn-secondary" id="btnOpenRef">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          START Algorithm Guide
+        </button>
+        <button type="button" class="btn btn-secondary" id="btnAbortToMenu" style="display: none;">
+          Restart / Menu
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN INTERACTIVE WORKSPACE
+       ======================================================================== -->
+  <main class="main-container">
+
+    <!-- 1. BRIEFING & CONFIGURATION SCREEN -->
+    <section id="screenSetup" class="screen active">
+      <div class="setup-card">
+        <div class="setup-header">
+          <h2>Incident Briefing: Rush-Hour Highway Collision</h2>
+          <p>
+            A passenger transit bus collided with a fuel tanker on a wet highway. As the initial Triage Officer, you must rapidly categorize <strong>30 casualties</strong> using the <strong>START (Simple Triage and Rapid Treatment)</strong> protocol. Aim for &lt; 30 seconds per patient.
+          </p>
+        </div>
+
+        <!-- Color Category Quick Summary -->
+        <div class="triage-legend-strip">
+          <div class="legend-pill" style="background: var(--triage-green); color: #fff;">
+            MINOR (GREEN)
+            <small>Ambulatory / Walking</small>
+          </div>
+          <div class="legend-pill" style="background: var(--triage-yellow); color: #0f172a;">
+            DELAYED (YELLOW)
+            <small>Non-ambulatory, RPM Normal</small>
+          </div>
+          <div class="legend-pill" style="background: var(--triage-red); color: #fff;">
+            IMMEDIATE (RED)
+            <small>R &gt; 30, P &gt; 2s, or M Fails</small>
+          </div>
+          <div class="legend-pill" style="background: var(--triage-black); color: #fff; border-color: #71717a;">
+            EXPECTANT (BLACK)
+            <small>Apneic after Airway Open</small>
+          </div>
+        </div>
+
+        <!-- Mode & Order Settings -->
+        <div class="options-grid">
+          <div class="option-group">
+            <label class="group-label">1. Simulation Mode</label>
+            <label class="radio-choice">
+              <input type="radio" name="gameMode" value="training" checked />
+              <div>
+                <strong>Training Mode (Guided)</strong>
+                <span>Immediate clinical rationale &amp; feedback after each patient.</span>
+              </div>
+            </label>
+            <label class="radio-choice">
+              <input type="radio" name="gameMode" value="exam" />
+              <div>
+                <strong>Exam / MCI Drill Mode</strong>
+                <span>Rapid continuous triage of all 30 patients with full debrief at the end.</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="option-group">
+            <label class="group-label">2. Patient Sequence</label>
+            <label class="radio-choice">
+              <input type="radio" name="orderMode" value="sequential" checked />
+              <div>
+                <strong>Sequential (#1 to #30)</strong>
+                <span>Assess casualties in standard roster order.</span>
+              </div>
+            </label>
+            <label class="radio-choice">
+              <input type="radio" name="orderMode" value="random" />
+              <div>
+                <strong>Randomized Scene Order</strong>
+                <span>Shuffles all 30 patients for repeatable drill testing.</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="option-group">
+            <label class="group-label">3. Triage Clock</label>
+            <label class="radio-choice">
+              <input type="radio" name="timerMode" value="on" checked />
+              <div>
+                <strong>Stopwatch Enabled</strong>
+                <span>Tracks total drill time and average seconds per patient.</span>
+              </div>
+            </label>
+            <label class="radio-choice">
+              <input type="radio" name="timerMode" value="off" />
+              <div>
+                <strong>Untimed Study</strong>
+                <span>Hide the clock to focus purely on clinical criteria.</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-primary btn-lg" id="btnStartDrill">
+            Begin Triage Assessment (30 Patients) &rarr;
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. ACTIVE GAMEPLAY SCREEN -->
+    <section id="screenGame" class="screen">
+      <!-- Top HUD -->
+      <div class="hud-bar">
+        <div class="hud-stat">
+          <span class="label">Casualty</span>
+          <span class="value" id="hudProgressText">1 / 30</span>
+        </div>
+
+        <div class="progress-track" aria-label="Triage progress">
+          <div class="progress-fill" id="hudProgressBar"></div>
+        </div>
+
+        <div class="hud-stat" id="hudScoreGroup">
+          <span class="label">Accuracy</span>
+          <span class="value" id="hudScoreText">0 / 0</span>
+        </div>
+
+        <div class="hud-stat" id="hudTimerGroup">
+          <span class="label">Elapsed</span>
+          <span class="value" id="hudTimerText">00:00</span>
+        </div>
+      </div>
+
+      <!-- Main Assessment Workspace -->
+      <div class="triage-workspace">
+        <!-- Left Column: Visual Patient Silhouette & Badges -->
+        <aside class="patient-visual-card">
+          <div class="patient-id-header">
+            <span class="patient-number" id="visRosterId">Patient #1</span>
+            <span class="patient-demo" id="visDemo">34F</span>
+          </div>
+
+          <div class="avatar-stage" id="avatarStage">
+            <!-- Stamped Triage Tag Visual -->
+            <div class="stamped-tag-overlay" id="stampedTag">GREEN</div>
+            <!-- Dynamic Inline SVG Patient Silhouette & Injury Markers -->
+            <div id="patientSvgContainer" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
+          </div>
+
+          <!-- Quick Visual Sensor Chips -->
+          <div class="mini-status-badges" id="miniSensorChips"></div>
+        </aside>
+
+        <!-- Right Column: Clinical Findings & START Triage Tags -->
+        <div class="clinical-panel">
+          <div class="presentation-box">
+            <div class="sec-title">Scene Presentation &amp; Chief Complaint</div>
+            <p id="clinPresentation">Small forehead laceration; crying and visibly shaken.</p>
+          </div>
+
+          <!-- START 4-Step Parameters (Ambulation, Respiration, Perfusion, Mental Status) -->
+          <div class="rpm-grid">
+            <div class="rpm-card">
+              <div class="rpm-header">
+                <span>1. Ambulation</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+                  <circle cx="13" cy="4" r="2"/><path d="M13 7l-3 5 4 3v6M10 12l-4 3M14 9l4 2"/>
+                </svg>
+              </div>
+              <div class="rpm-value" id="clinAmbulation">Walking around scene</div>
+            </div>
+
+            <div class="rpm-card">
+              <div class="rpm-header">
+                <span>2. Respirations</span>
+                <span class="pulse-wave" id="respPulseDot"></span>
+              </div>
+              <div class="rpm-value" id="clinResp">22/min</div>
+            </div>
+
+            <div class="rpm-card">
+              <div class="rpm-header">
+                <span>3. Perfusion</span>
+                <span class="pulse-wave" id="perfPulseDot"></span>
+              </div>
+              <div class="rpm-value" id="clinPerf">Radial pulse strong</div>
+            </div>
+
+            <div class="rpm-card">
+              <div class="rpm-header">
+                <span>4. Mental Status</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+                  <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/>
+                </svg>
+              </div>
+              <div class="rpm-value" id="clinMental">Follows commands</div>
+            </div>
+          </div>
+
+          <!-- Triage Tag Selection -->
+          <div class="tag-prompt">
+            <span>Assign START Triage Tag</span>
+            <span style="font-weight: 400; font-size: 0.75rem;">Shortcuts: [1] Green &bull; [2] Yellow &bull; [3] Red &bull; [4] Black</span>
+          </div>
+
+          <div class="triage-tags-grid" id="tagButtonsGrid">
+            <button type="button" class="tag-btn tag-green" data-tag="GREEN">
+              <span class="tag-color-name">GREEN</span>
+              <span class="tag-desc">Minor</span>
+              <span class="key-hint">Key 1</span>
+            </button>
+
+            <button type="button" class="tag-btn tag-yellow" data-tag="YELLOW">
+              <span class="tag-color-name">YELLOW</span>
+              <span class="tag-desc">Delayed</span>
+              <span class="key-hint">Key 2</span>
+            </button>
+
+            <button type="button" class="tag-btn tag-red" data-tag="RED">
+              <span class="tag-color-name">RED</span>
+              <span class="tag-desc">Immediate</span>
+              <span class="key-hint">Key 3</span>
+            </button>
+
+            <button type="button" class="tag-btn tag-black" data-tag="BLACK">
+              <span class="tag-color-name">BLACK</span>
+              <span class="tag-desc">Expectant</span>
+              <span class="key-hint">Key 4</span>
+            </button>
+          </div>
+
+          <!-- Immediate Rationale Drawer (Shown in Training Mode after answering) -->
+          <div class="feedback-banner" id="feedbackBanner">
+            <div class="feedback-header">
+              <div class="feedback-title" id="feedbackTitle">Correct!</div>
+              <button type="button" class="btn btn-primary" id="btnNextPatient">Next Patient &rarr;</button>
+            </div>
+            <p class="feedback-rationale" id="feedbackRationale"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. END-OF-DRILL DEBRIEFING SCREEN -->
+    <section id="screenDebrief" class="screen">
+      <div class="debrief-card">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px;">
+          <div>
+            <h2 style="font-size: 1.45rem;">MCI Triage After-Action Debrief</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Multi-Vehicle Transit Collision &mdash; 30 Casualties Evaluated</p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn btn-secondary" id="btnRetryMissed">Retry Missed Only</button>
+            <button type="button" class="btn btn-primary" id="btnRestartFull">New Drill</button>
+          </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="stats-summary-grid">
+          <div class="stat-box">
+            <div class="big-num" id="debriefScorePct">0%</div>
+            <div class="stat-lbl">Triage Accuracy</div>
+          </div>
+          <div class="stat-box">
+            <div class="big-num" id="debriefCorrectCount">0 / 30</div>
+            <div class="stat-lbl">Correctly Tagged</div>
+          </div>
+          <div class="stat-box">
+            <div class="big-num" id="debriefTotalTime">00:00</div>
+            <div class="stat-lbl">Total Drill Time</div>
+          </div>
+          <div class="stat-box">
+            <div class="big-num" id="debriefAvgTime">0.0s</div>
+            <div class="stat-lbl">Avg Time / Patient</div>
+          </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+          <button type="button" class="tab-btn active" data-filter="all">All Patients (30)</button>
+          <button type="button" class="tab-btn" data-filter="missed" id="tabMissedBtn">Missed Only (0)</button>
+          <button type="button" class="tab-btn" data-filter="RED">Red / Immediate</button>
+          <button type="button" class="tab-btn" data-filter="YELLOW">Yellow / Delayed</button>
+          <button type="button" class="tab-btn" data-filter="GREEN">Green / Minor</button>
+          <button type="button" class="tab-btn" data-filter="BLACK">Black / Expectant</button>
+        </div>
+
+        <!-- Detailed Patient Breakdown Table -->
+        <div class="review-table-wrap">
+          <table class="review-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Patient &amp; Findings</th>
+                <th>Your Tag</th>
+                <th>Correct Tag</th>
+                <th>START Clinical Rationale</th>
+              </tr>
+            </thead>
+            <tbody id="debriefTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================
+       START ALGORITHM DECISION TREE REFERENCE MODAL
+       ======================================================================== -->
+  <div class="modal-backdrop" id="refModal" role="dialog" aria-modal="true" aria-labelledby="refModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="refModalTitle" style="font-size: 1.15rem;">START Adult Triage Decision Algorithm</h3>
+        <button type="button" class="btn btn-secondary" id="btnCloseRef">Close &times;</button>
+      </div>
+
+      <!-- Inline SVG Decision Tree Flowchart -->
+      <svg viewBox="0 0 700 410" style="width: 100%; height: auto; background: #0b1120; border-radius: 10px; border: 1px solid #334155;">
+        <!-- Step 1: Walking -->
+        <rect x="20" y="20" width="230" height="54" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text x="135" y="43" fill="#f8fafc" font-size="13" font-weight="bold" text-anchor="middle">1. Able to Walk?</text>
+        <text x="135" y="61" fill="#94a3b8" font-size="11" text-anchor="middle">"Everyone who can walk, move to..."</text>
+
+        <line x1="250" y1="47" x2="470" y2="47" stroke="#22c55e" stroke-width="2" />
+        <text x="355" y="40" fill="#4ade80" font-size="11" font-weight="bold" text-anchor="middle">YES</text>
+        <rect x="470" y="22" width="205" height="50" rx="8" fill="#16a34a" />
+        <text x="572" y="45" fill="#fff" font-size="13" font-weight="bold" text-anchor="middle">MINOR (GREEN)</text>
+        <text x="572" y="61" fill="#dcfce7" font-size="10" text-anchor="middle">Secondary triage later</text>
+
+        <!-- Down to Step 2 -->
+        <line x1="135" y1="74" x2="135" y2="112" stroke="#94a3b8" stroke-width="2" />
+        <text x="152" y="97" fill="#f87171" font-size="11" font-weight="bold">NO</text>
+
+        <!-- Step 2: Breathing -->
+        <rect x="20" y="112" width="230" height="54" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text x="135" y="135" fill="#f8fafc" font-size="13" font-weight="bold" text-anchor="middle">2. Spontaneous Breathing?</text>
+        <text x="135" y="153" fill="#94a3b8" font-size="11" text-anchor="middle">If NO &rarr; Position Airway Once</text>
+
+        <line x1="250" y1="139" x2="470" y2="139" stroke="#94a3b8" stroke-width="2" />
+        <text x="355" y="131" fill="#f87171" font-size="10" font-weight="bold" text-anchor="middle">NO (Even after airway open)</text>
+        <rect x="470" y="114" width="205" height="50" rx="8" fill="#18181b" stroke="#71717a" stroke-width="2" />
+        <text x="572" y="137" fill="#fff" font-size="13" font-weight="bold" text-anchor="middle">EXPECTANT (BLACK)</text>
+        <text x="572" y="153" fill="#a1a1aa" font-size="10" text-anchor="middle">Note: Starts breathing = RED</text>
+
+        <!-- Down to Respiratory Rate -->
+        <line x1="135" y1="166" x2="135" y2="202" stroke="#94a3b8" stroke-width="2" />
+        <text x="152" y="188" fill="#4ade80" font-size="11" font-weight="bold">YES</text>
+
+        <rect x="20" y="202" width="230" height="46" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text x="135" y="223" fill="#f8fafc" font-size="13" font-weight="bold" text-anchor="middle">Respiratory Rate &gt; 30/min?</text>
+        <text x="135" y="239" fill="#94a3b8" font-size="10" text-anchor="middle">Or resumed breathing post-airway</text>
+
+        <line x1="250" y1="225" x2="470" y2="225" stroke="#ef4444" stroke-width="2" />
+        <text x="355" y="218" fill="#f87171" font-size="11" font-weight="bold" text-anchor="middle">YES (&gt; 30/min)</text>
+        <rect x="470" y="200" width="205" height="50" rx="8" fill="#dc2626" />
+        <text x="572" y="223" fill="#fff" font-size="13" font-weight="bold" text-anchor="middle">IMMEDIATE (RED)</text>
+        <text x="572" y="239" fill="#fee2e2" font-size="10" text-anchor="middle">Critical airway/breathing</text>
+
+        <!-- Down to Step 3: Perfusion -->
+        <line x1="135" y1="248" x2="135" y2="282" stroke="#94a3b8" stroke-width="2" />
+        <text x="152" y="269" fill="#4ade80" font-size="11" font-weight="bold">&lt; 30</text>
+
+        <rect x="20" y="282" width="230" height="46" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text x="135" y="303" fill="#f8fafc" font-size="13" font-weight="bold" text-anchor="middle">3. Perfusion: Radial Pulse Absent</text>
+        <text x="135" y="319" fill="#94a3b8" font-size="10" text-anchor="middle">or Cap Refill &gt; 2 seconds?</text>
+
+        <line x1="250" y1="305" x2="470" y2="305" stroke="#ef4444" stroke-width="2" />
+        <text x="355" y="298" fill="#f87171" font-size="11" font-weight="bold" text-anchor="middle">YES (Control bleeding)</text>
+        <rect x="470" y="280" width="205" height="48" rx="8" fill="#dc2626" />
+        <text x="572" y="308" fill="#fff" font-size="13" font-weight="bold" text-anchor="middle">IMMEDIATE (RED)</text>
+
+        <!-- Down to Step 4: Mental Status -->
+        <line x1="135" y1="328" x2="135" y2="352" stroke="#94a3b8" stroke-width="2" />
+        <rect x="20" y="352" width="230" height="46" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+        <text x="135" y="373" fill="#f8fafc" font-size="13" font-weight="bold" text-anchor="middle">4. Follows Simple Commands?</text>
+        <text x="135" y="389" fill="#94a3b8" font-size="10" text-anchor="middle">NO &rarr; RED | YES &rarr; YELLOW</text>
+
+        <line x1="250" y1="375" x2="470" y2="375" stroke="#eab308" stroke-width="2" />
+        <text x="355" y="368" fill="#facc15" font-size="11" font-weight="bold" text-anchor="middle">YES (Obeys commands)</text>
+        <rect x="470" y="351" width="205" height="48" rx="8" fill="#eab308" />
+        <text x="572" y="379" fill="#0f172a" font-size="13" font-weight="bold" text-anchor="middle">DELAYED (YELLOW)</text>
+      </svg>
+
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 12px;">
+        <strong>Key Pearl ("30-2-Can Do"):</strong> Respirations &gt; <strong>30</strong>, Perfusion &gt; <strong>2</strong> sec (or absent radial pulse), or unable to follow commands (<strong>Can Do</strong>) = <strong>RED</strong>. If walking = <strong>GREEN</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       APPLICATION LOGIC & 30-PATIENT CLINICAL DATASET
+       ======================================================================== -->
+  <script>
+    /**
+     * Complete 30-Patient Multi-Vehicle Transit Collision Dataset
+     * Each entry contains clinical vitals, visual icon flags, and START rationale.
+     */
+    const PATIENTS_DATA = [
+      {
+        id: 1,
+        demo: "34F",
+        presentation: "Small forehead laceration; crying and visibly shaken.",
+        ambulation: "Walking around scene",
+        respirations: "22/min",
+        perfusion: "Radial pulse strong",
+        mental: "Follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory (able to walk). Under START, any casualty able to walk is initially categorized as MINOR (Green).",
+        visual: { posture: "walking", injuryZone: "head", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 2,
+        demo: "52M",
+        presentation: "Trapped under bus seat; severe pelvic pain, pale and diaphoretic.",
+        ambulation: "Unable to walk",
+        respirations: "28/min",
+        perfusion: "Radial pulse absent; cap refill 4 sec",
+        mental: "Awake, groaning",
+        category: "RED",
+        rationale: "Perfusion failure (absent radial pulse / capillary refill > 2 sec) indicating decompensated hemorrhagic shock from pelvic trauma.",
+        visual: { posture: "supine", injuryZone: "pelvis", respState: "normal", perfState: "critical", mentalState: "alert" }
+      },
+      {
+        id: 3,
+        demo: "19M",
+        presentation: "Lying motionless near bus front; massive open skull fracture with brain matter visible.",
+        ambulation: "Unresponsive",
+        respirations: "Apneic (remains apneic after jaw thrust)",
+        perfusion: "No carotid pulse",
+        mental: "Unresponsive",
+        category: "BLACK",
+        rationale: "Apneic (not breathing) even after opening the airway with a jaw thrust maneuver.",
+        visual: { posture: "supine", injuryZone: "head", respState: "apneic", perfState: "none", mentalState: "unresponsive" }
+      },
+      {
+        id: 4,
+        demo: "41F",
+        presentation: "Open fracture of right femur; heavy bleeding controlled by bystander tourniquet.",
+        ambulation: "Unable to walk",
+        respirations: "24/min",
+        perfusion: "Radial pulse weak, present",
+        mental: "Alert, follows commands",
+        category: "YELLOW",
+        rationale: "Non-ambulatory, respirations < 30/min, radial pulse is present (bleeding controlled), and patient follows commands.",
+        visual: { posture: "supine", injuryZone: "leg", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 5,
+        demo: "28M",
+        presentation: "Severe burn to left arm and shoulder; complaining of intense pain.",
+        ambulation: "Walking toward triage area",
+        respirations: "20/min",
+        perfusion: "Radial pulse present",
+        mental: "Oriented, follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory. Despite a painful partial/full-thickness burn, START prioritizes walking ability first.",
+        visual: { posture: "walking", injuryZone: "arm", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 6,
+        demo: "67F",
+        presentation: "Sitting on curb; chest tightness, history of hypertension, no obvious trauma.",
+        ambulation: "Walked to curb",
+        respirations: "26/min",
+        perfusion: "Radial pulse present",
+        mental: "Follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory (walked to curb). Requires secondary medical evaluation later, but initial START tag is Green.",
+        visual: { posture: "walking", injuryZone: "chest", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 7,
+        demo: "45M",
+        presentation: "Blunt abdominal trauma; guarding, rigid abdomen.",
+        ambulation: "Unable to walk",
+        respirations: "34/min",
+        perfusion: "Radial pulse present",
+        mental: "Anxious, follows commands",
+        category: "RED",
+        rationale: "Respirations > 30/min (34/min). Tachypnea above 30 triggers an immediate RED tag.",
+        visual: { posture: "supine", injuryZone: "abdomen", respState: "fast", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 8,
+        demo: "22F",
+        presentation: "Ejected from bus; slumped over guardrail, snoring respirations.",
+        ambulation: "Unresponsive",
+        respirations: "8/min (improves to 16/min after head-tilt/chin-lift)",
+        perfusion: "Radial pulse present",
+        mental: "Unresponsive to voice or pain",
+        category: "RED",
+        rationale: "Mental status failure (unresponsive / unable to follow simple commands) plus an airway requiring manual positioning.",
+        visual: { posture: "supine", injuryZone: "head", respState: "normal", perfState: "normal", mentalState: "unresponsive" }
+      },
+      {
+        id: 9,
+        demo: "31M",
+        presentation: "Bilateral lower extremity fractures; yelling for help.",
+        ambulation: "Unable to walk",
+        respirations: "22/min",
+        perfusion: "Cap refill < 2 sec",
+        mental: "Alert, follows commands",
+        category: "YELLOW",
+        rationale: "Non-ambulatory, respirations < 30/min, capillary refill < 2 sec, and follows commands.",
+        visual: { posture: "supine", injuryZone: "leg", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 10,
+        demo: "58F",
+        presentation: "Facial burns and singed nasal hairs; hoarse voice, coughing soot.",
+        ambulation: "Unable to walk",
+        respirations: "36/min",
+        perfusion: "Radial pulse present",
+        mental: "Restless, confused",
+        category: "RED",
+        rationale: "Respirations > 30/min (36/min) and altered mental status (restless/confused) with impending inhalation airway edema.",
+        visual: { posture: "supine", injuryZone: "head", respState: "fast", perfState: "normal", mentalState: "altered" }
+      },
+      {
+        id: 11,
+        demo: "12M",
+        presentation: "Agitated, screaming for his mother; minor abrasions on hands and knees.",
+        ambulation: "Running around scene",
+        respirations: "28/min",
+        perfusion: "Radial pulse present",
+        mental: "Follows commands when calmed",
+        category: "GREEN",
+        rationale: "Ambulatory (running independently around the scene).",
+        visual: { posture: "walking", injuryZone: "arm", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 12,
+        demo: "49M",
+        presentation: "Impaled by metal rod in right thigh; minimal active bleeding.",
+        ambulation: "Unable to walk",
+        respirations: "18/min",
+        perfusion: "Radial pulse strong",
+        mental: "Calm, follows commands",
+        category: "YELLOW",
+        rationale: "Non-ambulatory, respirations < 30/min, strong radial pulse, and follows commands.",
+        visual: { posture: "supine", injuryZone: "leg", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 13,
+        demo: "73F",
+        presentation: "Found face down; no respiratory effort.",
+        ambulation: "Unresponsive",
+        respirations: "Apneic (begins gasping at 14/min after airway opened)",
+        perfusion: "Radial pulse weak",
+        mental: "Unresponsive",
+        category: "RED",
+        rationale: "Initially apneic, but spontaneous breathing resumed after opening the airway—always tagged IMMEDIATE (Red) in START.",
+        visual: { posture: "supine", injuryZone: "head", respState: "normal", perfState: "normal", mentalState: "unresponsive" }
+      },
+      {
+        id: 14,
+        demo: "36M",
+        presentation: "Partial amputation of left hand; wrapping injury in his shirt.",
+        ambulation: "Walking toward responders",
+        respirations: "24/min",
+        perfusion: "Radial pulse present",
+        mental: "Alert, follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory. Classic START principle: even severe distal extremity injuries get tagged Green initially if the patient can walk.",
+        visual: { posture: "walking", injuryZone: "arm", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 15,
+        demo: "25F",
+        presentation: "Closed head injury; repetitive questioning, disoriented to time and place.",
+        ambulation: "Unable to walk",
+        respirations: "18/min",
+        perfusion: "Radial pulse present",
+        mental: "Unable to follow simple commands",
+        category: "RED",
+        rationale: "Mental status failure: unable to follow simple commands (e.g., 'squeeze my fingers').",
+        visual: { posture: "supine", injuryZone: "head", respState: "normal", perfState: "normal", mentalState: "altered" }
+      },
+      {
+        id: 16,
+        demo: "61M",
+        presentation: "Severe back pain and numbness in both legs; lying supine on pavement.",
+        ambulation: "Unable to walk",
+        respirations: "16/min",
+        perfusion: "Cap refill < 2 sec",
+        mental: "Alert, follows commands",
+        category: "YELLOW",
+        rationale: "Non-ambulatory (suspected spinal injury), respirations < 30/min, cap refill < 2 sec, and follows commands.",
+        visual: { posture: "supine", injuryZone: "pelvis", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 17,
+        demo: "39F",
+        presentation: "Sucking chest wound on right side; severe respiratory distress, cyanotic.",
+        ambulation: "Unable to walk",
+        respirations: "38/min",
+        perfusion: "Radial pulse thready",
+        mental: "Combative, confused",
+        category: "RED",
+        rationale: "Respirations > 30/min (38/min) and hypoxic altered mental status (combative/confused).",
+        visual: { posture: "supine", injuryZone: "chest", respState: "fast", perfState: "normal", mentalState: "altered" }
+      },
+      {
+        id: 18,
+        demo: "44M",
+        presentation: "Pinned beneath wreckage; unresponsive, no chest rise.",
+        ambulation: "Unresponsive",
+        respirations: "Apneic (no breathing after 2 airway repositioning attempts)",
+        perfusion: "Absent",
+        mental: "Unresponsive",
+        category: "BLACK",
+        rationale: "Apneic with no spontaneous respirations after airway repositioning.",
+        visual: { posture: "supine", injuryZone: "chest", respState: "apneic", perfState: "none", mentalState: "unresponsive" }
+      },
+      {
+        id: 19,
+        demo: "29F",
+        presentation: "Pregnant (32 weeks); abdominal cramping and vaginal spotting, no external injuries.",
+        ambulation: "Able to walk with assistance",
+        respirations: "20/min",
+        perfusion: "Radial pulse strong",
+        mental: "Alert, follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory (able to walk). Will be prioritized for transport during secondary triage, but initial START tag is Green.",
+        visual: { posture: "walking", injuryZone: "abdomen", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 20,
+        demo: "50M",
+        presentation: "Deep laceration to neck; bright red blood spurting, pale skin.",
+        ambulation: "Unable to walk",
+        respirations: "28/min",
+        perfusion: "Radial pulse absent",
+        mental: "Lethargic",
+        category: "RED",
+        rationale: "Perfusion failure (absent radial pulse) from major arterial hemorrhage (apply direct pressure/hemostatic dressing and tag Red).",
+        visual: { posture: "supine", injuryZone: "head", respState: "normal", perfState: "critical", mentalState: "altered" }
+      },
+      {
+        id: 21,
+        demo: "16F",
+        presentation: "Dislocated right shoulder; holding arm against chest.",
+        ambulation: "Walking away from bus",
+        respirations: "18/min",
+        perfusion: "Cap refill < 2 sec",
+        mental: "Follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory (walking away from the bus independently).",
+        visual: { posture: "walking", injuryZone: "arm", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 22,
+        demo: "64M",
+        presentation: "Crush injury to left lower leg; foot is pale and cold.",
+        ambulation: "Unable to walk",
+        respirations: "20/min",
+        perfusion: "Radial pulse present",
+        mental: "Alert, follows commands",
+        category: "YELLOW",
+        rationale: "Non-ambulatory, respirations < 30/min, systemic perfusion intact (radial pulse present), and follows commands.",
+        visual: { posture: "supine", injuryZone: "leg", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 23,
+        demo: "33F",
+        presentation: "Inhalation exposure; wheezing loudly, tripod positioning.",
+        ambulation: "Unable to walk",
+        respirations: "32/min",
+        perfusion: "Radial pulse present",
+        mental: "Follows commands",
+        category: "RED",
+        rationale: "Respirations > 30/min (32/min) due to acute bronchospasm / inhalation injury.",
+        visual: { posture: "supine", injuryZone: "chest", respState: "fast", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 24,
+        demo: "47M",
+        presentation: "Laceration to scalp with moderate bleeding; sitting upright against tire.",
+        ambulation: "Refuses to walk due to dizziness",
+        respirations: "16/min",
+        perfusion: "Radial pulse strong",
+        mental: "Follows commands",
+        category: "YELLOW",
+        rationale: "Non-ambulatory (cannot/will not walk due to dizziness), respirations < 30/min, strong radial pulse, and follows commands.",
+        visual: { posture: "supine", injuryZone: "head", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 25,
+        demo: "21M",
+        presentation: "High-velocity impact; flail chest segment visible on left thorax.",
+        ambulation: "Unable to walk",
+        respirations: "34/min",
+        perfusion: "Cap refill 3 sec",
+        mental: "Eyes open, doesn't follow commands",
+        category: "RED",
+        rationale: "Fails all three RPM physiological checks: Respirations > 30/min, Cap refill > 2 sec, and unable to follow commands.",
+        visual: { posture: "supine", injuryZone: "chest", respState: "fast", perfState: "critical", mentalState: "altered" }
+      },
+      {
+        id: 26,
+        demo: "55F",
+        presentation: "Burns covering 60% of total body surface area (anterior torso, both legs).",
+        ambulation: "Unable to walk",
+        respirations: "24/min",
+        perfusion: "Cap refill 4 sec",
+        mental: "Moaning, does not squeeze fingers",
+        category: "RED",
+        rationale: "Perfusion failure (capillary refill > 2 sec) and mental status failure (unable to follow commands).",
+        visual: { posture: "supine", injuryZone: "abdomen", respState: "normal", perfState: "critical", mentalState: "altered" }
+      },
+      {
+        id: 27,
+        demo: "38M",
+        presentation: "Sprained right ankle; hopping on one foot away from smoke.",
+        ambulation: "Moving away independently",
+        respirations: "22/min",
+        perfusion: "Radial pulse present",
+        mental: "Follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory (moving independently away from the hazard area).",
+        visual: { posture: "walking", injuryZone: "leg", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 28,
+        demo: "70M",
+        presentation: "History of COPD; severe dyspnea, using accessory muscles, unable to speak full sentences.",
+        ambulation: "Unable to walk",
+        respirations: "32/min",
+        perfusion: "Radial pulse present",
+        mental: "Alert, follows commands",
+        category: "RED",
+        rationale: "Respirations > 30/min (32/min) with severe respiratory distress.",
+        visual: { posture: "supine", injuryZone: "chest", respState: "fast", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 29,
+        demo: "26F",
+        presentation: "Small glass shrapnel embedded in left forearm; vitals stable.",
+        ambulation: "Walking around",
+        respirations: "16/min",
+        perfusion: "Radial pulse strong",
+        mental: "Follows commands",
+        category: "GREEN",
+        rationale: "Ambulatory (walking around with stable vitals).",
+        visual: { posture: "walking", injuryZone: "arm", respState: "normal", perfState: "normal", mentalState: "alert" }
+      },
+      {
+        id: 30,
+        demo: "42M",
+        presentation: "Blunt trauma to chest; trachea deviated, absent breath sounds on right.",
+        ambulation: "Unable to walk",
+        respirations: "10/min (shallow)",
+        perfusion: "Radial pulse absent",
+        mental: "Unresponsive",
+        category: "RED",
+        rationale: "Perfusion failure (absent radial pulse) and unresponsive mental status from tension pneumothorax.",
+        visual: { posture: "supine", injuryZone: "chest", respState: "normal", perfState: "critical", mentalState: "unresponsive" }
+      }
+    ];
+
+    /* ==========================================================================
+       GAME STATE
+       ========================================================================== */
+    const state = {
+      mode: "training",       // 'training' | 'exam'
+      order: "sequential",    // 'sequential' | 'random'
+      timerEnabled: true,
+      queue: [],              // Array of patient objects for current session
+      currentIndex: 0,
+      results: [],            // { patient, chosenTag, isCorrect }
+      locked: false,          // Prevents double clicks during feedback
+      startTime: null,
+      elapsedSeconds: 0,
+      timerInterval: null
+    };
+
+    /* ==========================================================================
+       DOM REFERENCES
+       ========================================================================== */
+    const screens = {
+      setup: document.getElementById("screenSetup"),
+      game: document.getElementById("screenGame"),
+      debrief: document.getElementById("screenDebrief")
+    };
+
+    const el = {
+      btnStartDrill: document.getElementById("btnStartDrill"),
+      btnAbortToMenu: document.getElementById("btnAbortToMenu"),
+      btnOpenRef: document.getElementById("btnOpenRef"),
+      btnCloseRef: document.getElementById("btnCloseRef"),
+      refModal: document.getElementById("refModal"),
+
+      hudProgressText: document.getElementById("hudProgressText"),
+      hudProgressBar: document.getElementById("hudProgressBar"),
+      hudScoreGroup: document.getElementById("hudScoreGroup"),
+      hudScoreText: document.getElementById("hudScoreText"),
+      hudTimerGroup: document.getElementById("hudTimerGroup"),
+      hudTimerText: document.getElementById("hudTimerText"),
+
+      visRosterId: document.getElementById("visRosterId"),
+      visDemo: document.getElementById("visDemo"),
+      stampedTag: document.getElementById("stampedTag"),
+      patientSvgContainer: document.getElementById("patientSvgContainer"),
+      miniSensorChips: document.getElementById("miniSensorChips"),
+
+      clinPresentation: document.getElementById("clinPresentation"),
+      clinAmbulation: document.getElementById("clinAmbulation"),
+      clinResp: document.getElementById("clinResp"),
+      clinPerf: document.getElementById("clinPerf"),
+      clinMental: document.getElementById("clinMental"),
+      respPulseDot: document.getElementById("respPulseDot"),
+      perfPulseDot: document.getElementById("perfPulseDot"),
+
+      tagButtonsGrid: document.getElementById("tagButtonsGrid"),
+      feedbackBanner: document.getElementById("feedbackBanner"),
+      feedbackTitle: document.getElementById("feedbackTitle"),
+      feedbackRationale: document.getElementById("feedbackRationale"),
+      btnNextPatient: document.getElementById("btnNextPatient"),
+
+      debriefScorePct: document.getElementById("debriefScorePct"),
+      debriefCorrectCount: document.getElementById("debriefCorrectCount"),
+      debriefTotalTime: document.getElementById("debriefTotalTime"),
+      debriefAvgTime: document.getElementById("debriefAvgTime"),
+      tabMissedBtn: document.getElementById("tabMissedBtn"),
+      debriefTableBody: document.getElementById("debriefTableBody"),
+      btnRetryMissed: document.getElementById("btnRetryMissed"),
+      btnRestartFull: document.getElementById("btnRestartFull")
+    };
+
+    /* ==========================================================================
+       HELPER FUNCTIONS
+       ========================================================================== */
+    function switchScreen(screenName) {
+      Object.values(screens).forEach(s => s.classList.remove("active"));
+      screens[screenName].classList.add("active");
+      el.btnAbortToMenu.style.display = screenName === "setup" ? "none" : "inline-flex";
+    }
+
+    function formatTime(totalSec) {
+      const mins = Math.floor(totalSec / 60).toString().padStart(2, "0");
+      const secs = (totalSec % 60).toString().padStart(2, "0");
+      return `${mins}:${secs}`;
+    }
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    /**
+     * Generates a dynamic inline SVG patient graphic illustrating posture
+     * (walking vs supine/non-ambulatory) and anatomical trauma zone highlight.
+     */
+    function buildPatientSVG(patient) {
+      const { posture, injuryZone, respState } = patient.visual;
+
+      // Coordinates for anatomical trauma pulse ring
+      const zoneCoords = {
+        walking: {
+          head: { cx: 110, cy: 36 },
+          chest: { cx: 110, cy: 76 },
+          abdomen: { cx: 110, cy: 102 },
+          pelvis: { cx: 110, cy: 120 },
+          arm: { cx: 84, cy: 86 },
+          leg: { cx: 126, cy: 155 }
+        },
+        supine: {
+          head: { cx: 48, cy: 115 },
+          chest: { cx: 92, cy: 115 },
+          abdomen: { cx: 122, cy: 115 },
+          pelvis: { cx: 145, cy: 115 },
+          arm: { cx: 95, cy: 136 },
+          leg: { cx: 185, cy: 115 }
+        }
+      };
+
+      const target = zoneCoords[posture][injuryZone] || { cx: 110, cy: 80 };
+      const pulseColor = respState === "apneic" ? "#71717a" : "#ef4444";
+
+      if (posture === "walking") {
+        return `
+          <svg viewBox="0 0 220 200" width="210" height="190" aria-label="Ambulatory patient silhouette">
+            <!-- Ground shadow -->
+            <ellipse cx="110" cy="184" rx="44" ry="7" fill="rgba(56, 189, 248, 0.16)" />
+            <!-- Walking Silhouette -->
+            <g stroke="#38bdf8" stroke-width="2.5" fill="rgba(56, 189, 248, 0.14)" stroke-linecap="round" stroke-linejoin="round">
+              <!-- Head -->
+              <circle cx="110" cy="36" r="15" />
+              <!-- Torso -->
+              <path d="M96 58 L124 58 L120 116 L100 116 Z" />
+              <!-- Arms in motion -->
+              <path d="M96 62 L76 92 L85 104" fill="none" stroke-width="6" />
+              <path d="M124 62 L144 88 L136 102" fill="none" stroke-width="6" />
+              <!-- Striding Legs -->
+              <path d="M104 116 L88 152 L78 178" fill="none" stroke-width="7" />
+              <path d="M116 116 L132 148 L146 176" fill="none" stroke-width="7" />
+            </g>
+            <!-- Injury Marker Pulse -->
+            <circle cx="${target.cx}" cy="${target.cy}" r="14" fill="none" stroke="${pulseColor}" stroke-width="2.5">
+              <animate attributeName="r" values="8;18;8" dur="1.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="${target.cx}" cy="${target.cy}" r="5" fill="${pulseColor}" />
+            <text x="110" y="196" fill="#4ade80" font-size="10" font-weight="bold" text-anchor="middle" letter-spacing="1">AMBULATORY</text>
+          </svg>
+        `;
+      } else {
+        return `
+          <svg viewBox="0 0 240 190" width="230" height="180" aria-label="Non-ambulatory supine patient silhouette">
+            <!-- Ground / Stretcher Line -->
+            <line x1="20" y1="142" x2="220" y2="142" stroke="#475569" stroke-width="3" stroke-linecap="round" />
+            <!-- Supine Silhouette -->
+            <g stroke="#94a3b8" stroke-width="2.5" fill="rgba(148, 163, 184, 0.16)" stroke-linecap="round" stroke-linejoin="round">
+              <!-- Head -->
+              <circle cx="48" cy="115" r="14" />
+              <!-- Torso -->
+              <rect x="68" y="102" width="76" height="26" rx="8" />
+              <!-- Arm -->
+              <path d="M78 124 L112 135 L134 132" fill="none" stroke-width="6" />
+              <!-- Legs -->
+              <path d="M144 110 L185 108 L212 110" fill="none" stroke-width="7" />
+              <path d="M144 122 L185 124 L212 124" fill="none" stroke-width="7" />
+            </g>
+            <!-- Injury Marker Pulse -->
+            <circle cx="${target.cx}" cy="${target.cy}" r="14" fill="none" stroke="${pulseColor}" stroke-width="2.5">
+              <animate attributeName="r" values="8;19;8" dur="1.3s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="1;0.2;1" dur="1.3s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="${target.cx}" cy="${target.cy}" r="5" fill="${pulseColor}" />
+            <text x="120" y="166" fill="#f87171" font-size="10" font-weight="bold" text-anchor="middle" letter-spacing="1">NON-AMBULATORY</text>
+          </svg>
+        `;
+      }
+    }
+
+    /* ==========================================================================
+       START & RENDER GAMEPLAY
+       ========================================================================== */
+    function startSession(customPatientList = null) {
+      // Read setup options if starting fresh
+      if (!customPatientList) {
+        state.mode = document.querySelector('input[name="gameMode"]:checked').value;
+        state.order = document.querySelector('input[name="orderMode"]:checked').value;
+        state.timerEnabled = document.querySelector('input[name="timerMode"]:checked').value === "on";
+
+        state.queue = state.order === "random"
+          ? shuffleArray(PATIENTS_DATA)
+          : [...PATIENTS_DATA];
+      } else {
+        state.queue = customPatientList;
+      }
+
+      state.currentIndex = 0;
+      state.results = [];
+      state.locked = false;
+      state.elapsedSeconds = 0;
+
+      // Configure HUD visibility
+      el.hudScoreGroup.style.display = state.mode === "training" ? "flex" : "none";
+      el.hudTimerGroup.style.display = state.timerEnabled ? "flex" : "none";
+
+      // Reset and start timer
+      clearInterval(state.timerInterval);
+      el.hudTimerText.textContent = "00:00";
+      if (state.timerEnabled) {
+        state.timerInterval = setInterval(() => {
+          state.elapsedSeconds++;
+          el.hudTimerText.textContent = formatTime(state.elapsedSeconds);
+        }, 1000);
+      }
+
+      switchScreen("game");
+      renderCurrentPatient();
+    }
+
+    function renderCurrentPatient() {
+      const total = state.queue.length;
+      const patient = state.queue[state.currentIndex];
+      state.locked = false;
+
+      // Update HUD
+      el.hudProgressText.textContent = `${state.currentIndex + 1} / ${total}`;
+      el.hudProgressBar.style.width = `${(state.currentIndex / total) * 100}%`;
+      const correctSoFar = state.results.filter(r => r.isCorrect).length;
+      el.hudScoreText.textContent = `${correctSoFar} / ${state.results.length}`;
+
+      // Reset Feedback Banner & Stamped Tag
+      el.feedbackBanner.classList.remove("visible", "feedback-correct", "feedback-incorrect");
+      el.stampedTag.classList.remove("visible");
+
+      // Enable Tag Buttons
+      const tagBtns = el.tagButtonsGrid.querySelectorAll(".tag-btn");
+      tagBtns.forEach(btn => btn.disabled = false);
+
+      // Populate Visual Card
+      el.visRosterId.textContent = `Roster #${patient.id}`;
+      el.visDemo.textContent = patient.demo;
+      el.patientSvgContainer.innerHTML = buildPatientSVG(patient);
+
+      // Mini Status Sensor Chips
+      const { posture, respState, perfState, mentalState } = patient.visual;
+      el.miniSensorChips.innerHTML = `
+        <div class="status-chip">
+          <span class="status-dot" style="background: ${posture === 'walking' ? '#4ade80' : '#f87171'};"></span>
+          <span>${posture === 'walking' ? 'Walks' : 'Non-Walk'}</span>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot" style="background: ${respState === 'normal' ? '#4ade80' : '#ef4444'};"></span>
+          <span>Resp: ${respState === 'apneic' ? 'Apneic' : respState === 'fast' ? '> 30/m' : '< 30/m'}</span>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot" style="background: ${perfState === 'normal' ? '#4ade80' : '#ef4444'};"></span>
+          <span>Perf: ${perfState === 'normal' ? 'OK' : 'Shock/None'}</span>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot" style="background: ${mentalState === 'alert' ? '#4ade80' : '#ef4444'};"></span>
+          <span>CNS: ${mentalState === 'alert' ? 'Obeys' : 'Altered'}</span>
+        </div>
+      `;
+
+      // Populate Clinical Assessment Cards
+      el.clinPresentation.textContent = patient.presentation;
+      el.clinAmbulation.textContent = patient.ambulation;
+      el.clinResp.textContent = patient.respirations;
+      el.clinPerf.textContent = patient.perfusion;
+      el.clinMental.textContent = patient.mental;
+
+      // Animate Vital Dots
+      el.respPulseDot.className = "pulse-wave " + (
+        respState === "fast" ? "anim-fast" :
+        respState === "apneic" ? "anim-none" : "anim-normal"
+      );
+      el.perfPulseDot.className = "pulse-wave " + (
+        perfState === "normal" ? "anim-normal" : "anim-none"
+      );
+    }
+
+    function handleTagSelection(chosenTag) {
+      if (state.locked) return;
+      state.locked = true;
+
+      const patient = state.queue[state.currentIndex];
+      const isCorrect = chosenTag === patient.category;
+
+      state.results.push({
+        patient,
+        chosenTag,
+        isCorrect
+      });
+
+      // Stamp visual tag onto patient card
+      applyStampStyle(el.stampedTag, chosenTag);
+      el.stampedTag.textContent = chosenTag;
+      el.stampedTag.classList.add("visible");
+
+      // Disable tag buttons
+      const tagBtns = el.tagButtonsGrid.querySelectorAll(".tag-btn");
+      tagBtns.forEach(btn => btn.disabled = true);
+
+      if (state.mode === "training") {
+        // Update live accuracy HUD
+        const correctSoFar = state.results.filter(r => r.isCorrect).length;
+        el.hudScoreText.textContent = `${correctSoFar} / ${state.results.length}`;
+
+        // Show immediate clinical rationale
+        el.feedbackBanner.classList.add("visible", isCorrect ? "feedback-correct" : "feedback-incorrect");
+        el.feedbackTitle.innerHTML = isCorrect
+          ? `<span style="color:#4ade80;">&#10004; Correct &mdash; Tagged ${patient.category}</span>`
+          : `<span style="color:#f87171;">&#10008; Incorrect (You chose ${chosenTag} &rarr; Correct is ${patient.category})</span>`;
+        el.feedbackRationale.textContent = patient.rationale;
+        el.btnNextPatient.textContent = state.currentIndex + 1 < state.queue.length
+          ? "Next Patient \u2192"
+          : "View Final Debrief \u2192";
+        el.btnNextPatient.focus();
+      } else {
+        // Exam Mode: brief visual stamp pause, then advance automatically
+        setTimeout(() => {
+          advanceToNext();
+        }, 320);
+      }
+    }
+
+    function advanceToNext() {
+      if (state.currentIndex + 1 < state.queue.length) {
+        state.currentIndex++;
+        renderCurrentPatient();
+      } else {
+        finishSession();
+      }
+    }
+
+    function applyStampStyle(element, category) {
+      const styles = {
+        GREEN: { bg: "#16a34a", color: "#ffffff", border: "2px solid #86efac" },
+        YELLOW: { bg: "#eab308", color: "#0f172a", border: "2px solid #fef08a" },
+        RED: { bg: "#dc2626", color: "#ffffff", border: "2px solid #fca5a5" },
+        BLACK: { bg: "#18181b", color: "#f4f4f5", border: "2px solid #a1a1aa" }
+      };
+      const s = styles[category];
+      element.style.background = s.bg;
+      element.style.color = s.color;
+      element.style.border = s.border;
+    }
+
+    /* ==========================================================================
+       END-OF-GAME DEBRIEFING & TABLE FILTERING
+       ========================================================================== */
+    function finishSession() {
+      clearInterval(state.timerInterval);
+      el.hudProgressBar.style.width = "100%";
+
+      const total = state.results.length;
+      const correctCount = state.results.filter(r => r.isCorrect).length;
+      const missedCount = total - correctCount;
+      const pct = Math.round((correctCount / total) * 100);
+      const avgSec = (state.elapsedSeconds / total).toFixed(1);
+
+      el.debriefScorePct.textContent = `${pct}%`;
+      el.debriefScorePct.style.color = pct >= 85 ? "#4ade80" : pct >= 70 ? "#facc15" : "#f87171";
+      el.debriefCorrectCount.textContent = `${correctCount} / ${total}`;
+      el.debriefTotalTime.textContent = state.timerEnabled ? formatTime(state.elapsedSeconds) : "Untimed";
+      el.debriefAvgTime.textContent = state.timerEnabled ? `${avgSec}s` : "—";
+
+      el.tabMissedBtn.textContent = `Missed Only (${missedCount})`;
+      el.btnRetryMissed.style.display = missedCount > 0 ? "inline-flex" : "none";
+
+      // Reset filter tabs
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelector('.tab-btn[data-filter="all"]').classList.add("active");
+
+      renderDebriefTable("all");
+      switchScreen("debrief");
+    }
+
+    function getBadgeHTML(category) {
+      const map = {
+        GREEN: "background:#16a34a;color:#fff;",
+        YELLOW: "background:#eab308;color:#0f172a;",
+        RED: "background:#dc2626;color:#fff;",
+        BLACK: "background:#18181b;color:#fff;border:1px solid #71717a;"
+      };
+      return `<span class="pill-badge" style="${map[category]}">${category}</span>`;
+    }
+
+    function renderDebriefTable(filter) {
+      const filtered = state.results.filter(item => {
+        if (filter === "all") return true;
+        if (filter === "missed") return !item.isCorrect;
+        return item.patient.category === filter;
+      });
+
+      if (filtered.length === 0) {
+        el.debriefTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center; padding: 24px; color: var(--text-muted);">
+              No casualties match this filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      el.debriefTableBody.innerHTML = filtered.map(item => {
+        const p = item.patient;
+        const rowBg = item.isCorrect ? "transparent" : "rgba(220, 38, 38, 0.08)";
+        return `
+          <tr style="background: ${rowBg};">
+            <td style="font-weight: 800; color: var(--accent-blue);">#${p.id}</td>
+            <td>
+              <strong>${p.demo}</strong> &mdash; ${p.presentation}
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+                Walk: ${p.ambulation} | Resp: ${p.respirations} | Perf: ${p.perfusion} | CNS: ${p.mental}
+              </div>
+            </td>
+            <td>
+              ${getBadgeHTML(item.chosenTag)}
+              <div style="font-size: 0.74rem; margin-top: 3px; color: ${item.isCorrect ? '#4ade80' : '#f87171'};">
+                ${item.isCorrect ? "&#10004; Match" : "&#10008; Error"}
+              </div>
+            </td>
+            <td>${getBadgeHTML(p.category)}</td>
+            <td style="color: #cbd5e1; font-size: 0.83rem;">${p.rationale}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    /* ==========================================================================
+       EVENT LISTENERS
+       ========================================================================== */
+    el.btnStartDrill.addEventListener("click", () => startSession());
+
+    el.btnAbortToMenu.addEventListener("click", () => {
+      clearInterval(state.timerInterval);
+      switchScreen("setup");
+    });
+
+    el.tagButtonsGrid.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tag-btn");
+      if (!btn || btn.disabled) return;
+      handleTagSelection(btn.dataset.tag);
+    });
+
+    el.btnNextPatient.addEventListener("click", () => {
+      advanceToNext();
+    });
+
+    el.btnRestartFull.addEventListener("click", () => {
+      switchScreen("setup");
+    });
+
+    el.btnRetryMissed.addEventListener("click", () => {
+      const missedPatients = state.results
+        .filter(r => !r.isCorrect)
+        .map(r => r.patient);
+      if (missedPatients.length > 0) {
+        startSession(missedPatients);
+      }
+    });
+
+    // Debrief filter tabs
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderDebriefTable(btn.dataset.filter);
+      });
+    });
+
+    // START Reference Modal
+    el.btnOpenRef.addEventListener("click", () => el.refModal.classList.add("open"));
+    el.btnCloseRef.addEventListener("click", () => el.refModal.classList.remove("open"));
+    el.refModal.addEventListener("click", (e) => {
+      if (e.target === el.refModal) el.refModal.classList.remove("open");
+    });
+
+    // Keyboard shortcuts (1-4 for tags, Enter/Space for Next in training mode, Esc for modal)
+    document.addEventListener("keydown", (e) => {
+      if (el.refModal.classList.contains("open")) {
+        if (e.key === "Escape") el.refModal.classList.remove("open");
+        return;
+      }
+
+      if (!screens.game.classList.contains("active")) return;
+
+      if (!state.locked) {
+        if (e.key === "1") handleTagSelection("GREEN");
+        if (e.key === "2") handleTagSelection("YELLOW");
+        if (e.key === "3") handleTagSelection("RED");
+        if (e.key === "4") handleTagSelection("BLACK");
+      } else if (state.mode === "training" && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        advanceToNext();
+      }
+    });
+  </script>
+</body>
+</html>
